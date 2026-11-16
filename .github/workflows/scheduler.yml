@@ -1,0 +1,50 @@
+# Free alternative to Vercel Cron (Hobby plans only allow daily crons).
+# Set repository secrets: API_URL (e.g. https://socialhub-api.vercel.app) and CRON_SECRET.
+# GitHub runs scheduled workflows at most every 5 minutes, and may delay them under load.
+name: Scheduler
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # publish due posts + sync inbox
+    - cron: '0 9 * * *' # daily: token-expiry warnings
+    - cron: '0 9 * * 1' # Mondays: weekly analytics report
+  workflow_dispatch:
+
+jobs:
+  publish-and-sync:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Publish due posts
+        run: |
+          curl -fsS -X POST "${{ secrets.API_URL }}/api/cron/publish" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300
+      - name: Sync inbox, comments and metrics
+        run: |
+          curl -fsS -X POST "${{ secrets.API_URL }}/api/cron/sync" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300
+
+  daily:
+    if: github.event.schedule == '0 9 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Warn about expiring social tokens
+        run: |
+          curl -fsS "${{ secrets.API_URL }}/api/cron/token-expiry" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300
+      - name: Clean up expired sessions and notifications
+        run: |
+          curl -fsS "${{ secrets.API_URL }}/api/cron/cleanup" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300
+
+  weekly:
+    if: github.event.schedule == '0 9 * * 1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Send weekly analytics reports
+        run: |
+          curl -fsS "${{ secrets.API_URL }}/api/cron/weekly-report" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300

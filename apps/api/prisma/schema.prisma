@@ -1,0 +1,442 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum Provider {
+  FACEBOOK
+  INSTAGRAM
+  X
+  LINKEDIN
+  YOUTUBE
+  THREADS
+  TIKTOK
+  PINTEREST
+}
+
+enum AccountStatus {
+  CONNECTED
+  EXPIRED
+  ERROR
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PARTIAL
+  FAILED
+}
+
+enum TargetStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum ConversationStatus {
+  OPEN
+  ARCHIVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommentStatus {
+  NEW
+  REVIEWED
+  REPLIED
+  HIDDEN
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  passwordHash      String
+  name              String
+  avatarUrl         String?
+  timezone          String         @default("UTC")
+  jobTitle          String?
+  googleId          String?        @unique
+  passwordChangedAt DateTime?
+  notificationPrefs Json?
+  /// TOTP secret, AES-256-GCM encrypted. Set during setup; 2FA is active only once twoFactorEnabledAt is set.
+  twoFactorSecret     String?
+  twoFactorEnabledAt  DateTime?
+  /// sha256 hashes of unused single-use recovery codes
+  twoFactorRecovery   String[]       @default([])
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  memberships       Membership[]
+  refreshTokens     RefreshToken[]
+  notifications     Notification[]
+  posts             Post[]
+  resetTokens       PasswordResetToken[]
+}
+
+model Workspace {
+  id                   String         @id @default(cuid())
+  name                 String
+  plan                 Plan           @default(FREE)
+  stripeCustomerId     String?        @unique
+  stripeSubscriptionId String?        @unique
+  subscriptionStatus   String?
+  currentPeriodEnd     DateTime?
+  /// Reusable "invite by link" token, encrypted so admins can view and copy it again. Null = link disabled.
+  inviteLinkToken      String?
+  inviteLinkHash       String?        @unique
+  inviteLinkRole       Role           @default(EDITOR)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  memberships          Membership[]
+  invitations          Invitation[]
+  accounts             SocialAccount[]
+  posts                Post[]
+  media                MediaAsset[]
+  conversations        Conversation[]
+  comments             Comment[]
+  notifications        Notification[]
+  oauthStates          OAuthState[]
+  apiKeys              ApiKey[]
+  threadNotes          ThreadNote[]
+  mutedContacts        MutedContact[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        Role      @default(EDITOR)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  email       String
+  role        Role      @default(EDITOR)
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  tokenHash   String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model OAuthState {
+  id           String    @id
+  workspaceId  String
+  userId       String
+  provider     Provider
+  codeVerifier String?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id             String          @id @default(cuid())
+  workspaceId    String
+  provider       Provider
+  externalId     String
+  name           String
+  username       String?
+  avatarUrl      String?
+  accessToken    String
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  scopes         String[]
+  metadata       Json?
+  status         AccountStatus   @default(CONNECTED)
+  statusMessage  String?
+  followers      Int?
+  lastSyncedAt   DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  targets        PostTarget[]
+  conversations  Conversation[]
+  comments       Comment[]
+  metrics        AccountMetric[]
+
+  @@unique([workspaceId, provider, externalId])
+  @@index([provider, externalId])
+}
+
+model MediaAsset {
+  id          String    @id @default(cuid())
+  workspaceId String
+  uploaderId  String?
+  key         String    @unique
+  url         String
+  fileName    String
+  mimeType    String
+  size        Int
+  type        MediaType
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model Post {
+  id          String       @id @default(cuid())
+  workspaceId String
+  authorId    String?
+  content     String       @db.Text
+  media       Json         @default("[]")
+  link        String?
+  overrides   Json?
+  status      PostStatus   @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  lockedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author      User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  targets     PostTarget[]
+
+  @@index([workspaceId, status])
+  @@index([status, scheduledAt])
+  @@index([workspaceId, scheduledAt])
+}
+
+model PostTarget {
+  id              String        @id @default(cuid())
+  postId          String
+  socialAccountId String
+  status          TargetStatus  @default(PENDING)
+  externalId      String?
+  permalink       String?
+  error           String?
+  attempts        Int           @default(0)
+  publishedAt     DateTime?
+  likes           Int           @default(0)
+  comments        Int           @default(0)
+  shares          Int           @default(0)
+  impressions     Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  post            Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, socialAccountId])
+  @@index([socialAccountId, externalId])
+}
+
+model Conversation {
+  id                    String             @id @default(cuid())
+  workspaceId           String
+  socialAccountId       String
+  externalId            String
+  participantExternalId String?
+  participantName       String
+  participantHandle     String?
+  participantAvatar     String?
+  lastMessageAt         DateTime
+  lastMessagePreview    String?
+  unreadCount           Int                @default(0)
+  status                ConversationStatus @default(OPEN)
+  assigneeId            String?
+  flagged               Boolean            @default(false)
+  resolvedAt            DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  socialAccount         SocialAccount      @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  messages              Message[]
+
+  @@unique([socialAccountId, externalId])
+  @@index([workspaceId, lastMessageAt])
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  externalId     String?
+  direction      MessageDirection
+  text           String           @db.Text
+  attachments    Json?
+  senderName     String?
+  sentAt         DateTime
+  createdAt      DateTime         @default(now())
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, externalId])
+  @@index([conversationId, sentAt])
+}
+
+model Comment {
+  id               String        @id @default(cuid())
+  workspaceId      String
+  socialAccountId  String
+  externalId       String
+  externalPostId   String
+  parentExternalId String?
+  postPermalink    String?
+  postPreview      String?
+  authorExternalId String?
+  authorName       String
+  authorHandle     String?
+  authorAvatar     String?
+  text             String        @db.Text
+  likeCount        Int           @default(0)
+  isOwn            Boolean       @default(false)
+  hidden           Boolean       @default(false)
+  status           CommentStatus @default(NEW)
+  sentiment        Sentiment     @default(NEUTRAL)
+  assigneeId       String?
+  flagged          Boolean       @default(false)
+  resolvedAt       DateTime?
+  postedAt         DateTime
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  socialAccount    SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([socialAccountId, externalId])
+  @@index([workspaceId, postedAt])
+  @@index([workspaceId, status])
+}
+
+model AccountMetric {
+  id              String        @id @default(cuid())
+  socialAccountId String
+  date            DateTime      @db.Date
+  followers       Int           @default(0)
+  impressions     Int           @default(0)
+  reach           Int           @default(0)
+  engagement      Int           @default(0)
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([socialAccountId, date])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  type        String
+  title       String
+  body        String?
+  link        String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  createdById String
+  name        String
+  /// First characters of the key, shown in the UI to identify it
+  prefix      String
+  keyHash     String    @unique
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+/// Internal team note on an inbox thread (never sent to the platform).
+model ThreadNote {
+  id          String    @id @default(cuid())
+  workspaceId String
+  /// Inbox thread id, e.g. "dm_<conversationId>" or "cm_<commentId>"
+  threadId    String
+  authorId    String?
+  authorName  String
+  text        String    @db.Text
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, threadId])
+}
+
+/// Contacts whose new messages and comments are kept out of the inbox.
+model MutedContact {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  socialAccountId String
+  externalId      String
+  name            String
+  mutedById       String?
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([socialAccountId, externalId])
+  @@index([workspaceId])
+}

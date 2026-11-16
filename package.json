@@ -1,0 +1,15 @@
+{
+  "name": "socialhub",
+  "private": true,
+  "description": "SocialHub - multi-platform social media management SaaS (Next.js + NestJS)",
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/web install",
+    "db:up": "docker compose up -d",
+    "db:migrate": "npm --prefix apps/api run prisma:migrate",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/api run build && npm --prefix apps/web run build",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/web run typecheck",
+    "test:e2e": "node apps/api/scripts/e2e-local.mjs"
+  }
+}
