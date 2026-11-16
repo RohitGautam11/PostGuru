@@ -7,3 +7,6 @@ uploads
 .vercel
 *.tsbuildinfo
 .local-db
+
+.vercel
+.env*
