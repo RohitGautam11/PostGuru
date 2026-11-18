@@ -35,6 +35,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { GettingStarted } from '@/components/growth/getting-started';
 import { DeletePostDialog } from '@/components/posts/delete-post-dialog';
 import { usePostActions } from '@/components/posts/use-post-actions';
 import { Card, Dropdown, EmptyNote, GradientAvatar, MenuItem, Skeleton, StatusPill } from '@/components/ui';
@@ -676,6 +677,7 @@ export default function DashboardPage() {
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <Hero d={d} />
         <Issues issues={d.issues} />
+        <GettingStarted dismissible />
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Scheduled Posts"

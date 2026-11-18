@@ -3,6 +3,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
+  BookOpen,
+  TrendingUp,
   CalendarDays,
   ChevronDown,
   ChevronsLeft,
@@ -35,11 +37,13 @@ const MENU = [
   { id: 'planner', label: 'Planner', icon: CalendarDays, path: '/planner' },
   { id: 'inbox', label: 'Inbox', icon: Inbox, path: '/inbox', badge: true },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/analytics' },
+  { id: 'growth', label: 'Growth Hub', icon: TrendingUp, path: '/growth' },
+  { id: 'guide', label: 'Guide', icon: BookOpen, path: '/guide' },
 ];
 
 export function activeId(path: string) {
   if (path.startsWith('/posts')) return 'dashboard';
-  return ['dashboard', 'composer', 'planner', 'inbox', 'analytics', 'settings', 'connect'].find((id) => path.startsWith(`/${id}`)) ?? '';
+  return ['dashboard', 'composer', 'planner', 'inbox', 'analytics', 'growth', 'guide', 'settings', 'connect'].find((id) => path.startsWith(`/${id}`)) ?? '';
 }
 
 const label = { fontSize: 10, fontWeight: 700, color: '#B0B8C8', letterSpacing: '0.08em', textTransform: 'uppercase' as const };

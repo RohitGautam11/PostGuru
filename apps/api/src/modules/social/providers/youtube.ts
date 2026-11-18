@@ -134,7 +134,10 @@ export class YouTubeProvider implements SocialProvider {
         'X-Upload-Content-Type': mimeType,
         'X-Upload-Content-Length': String(buffer.length),
       },
-      json: { snippet: { title, description: description.slice(0, 5000) }, status: { privacyStatus: 'public' } },
+      json: {
+        snippet: { title, description: description.slice(0, 5000), ...(input.tags?.length ? { tags: input.tags } : {}) },
+        status: { privacyStatus: 'public' },
+      },
     });
     const uploadUrl = session.headers.get('location');
     if (!uploadUrl) throw new ProviderError('YouTube did not return an upload URL');

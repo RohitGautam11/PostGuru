@@ -1,3 +1,4 @@
+import { GrowthModule } from './modules/growth/growth.module';
 import { Controller, Get, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -50,6 +51,7 @@ class HealthController {
     MediaModule,
     PostsModule,
     EngagementModule,
+    GrowthModule,
   ],
   controllers: [HealthController, AnalyticsController, DashboardController, BillingController, WebhooksController, CronController],
   providers: [

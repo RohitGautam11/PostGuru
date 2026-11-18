@@ -23,7 +23,9 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { GrowthAssistant } from '@/components/growth/growth-assistant';
 import { MediaPicker, MediaThumb } from '@/components/media-picker';
+import { useMediaMeta } from '@/lib/growth';
 import { PlatformPreview } from '@/components/posts/platform-preview';
 import { Btn, Card, Dropdown, MenuItem, PageLoader, StatusPill } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
@@ -92,6 +94,8 @@ function Composer() {
   const [link, setLink] = useState('');
   const [showLink, setShowLink] = useState(false);
   const [ytTitle, setYtTitle] = useState('');
+  const [ytTags, setYtTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState('');
   const [mode, setMode] = useState<Mode>('schedule');
   const [date, setDate] = useState(format(start, 'yyyy-MM-dd'));
   const [time, setTime] = useState(initialDate ? format(start, 'HH:mm') : '10:00');
@@ -116,6 +120,7 @@ function Composer() {
       setLink(existing.link ?? '');
       setShowLink(!!existing.link);
       setYtTitle(existing.overrides?.YOUTUBE?.title ?? '');
+      setYtTags(existing.overrides?.YOUTUBE?.tags ?? []);
       if (existing.scheduledAt) {
         const d = new Date(existing.scheduledAt);
         setDate(format(d, 'yyyy-MM-dd'));
@@ -129,6 +134,16 @@ function Composer() {
       const fromAccount = accounts.find((a) => a.id === params.get('account') && a.status === 'CONNECTED');
       setSelected(fromAccount ? [fromAccount.id] : accounts.filter((a) => a.status === 'CONNECTED').map((a) => a.id));
       if (quote && /^https:\/\/(x|twitter)\.com\//.test(quote)) setContent(`\n\n${quote}`);
+      // ?draft=1 comes from Growth Hub → "Create post from this idea".
+      if (params.get('draft')) {
+        try {
+          const d = sessionStorage.getItem('composer-draft');
+          if (d) setContent(d);
+          sessionStorage.removeItem('composer-draft');
+        } catch {
+          /* storage unavailable */
+        }
+      }
       initialised.current = true;
     }
   }, [postId, existing, accounts, params]);
@@ -172,7 +187,10 @@ function Composer() {
         accountIds: selected,
         mediaIds: media.map((x) => x.id),
         link: link.trim() || undefined,
-        overrides: ytTitle.trim() ? { YOUTUBE: { title: ytTitle.trim() } } : undefined,
+        overrides:
+          ytTitle.trim() || ytTags.length
+            ? { YOUTUBE: { ...(ytTitle.trim() ? { title: ytTitle.trim() } : {}), ...(ytTags.length ? { tags: ytTags } : {}) } }
+            : undefined,
         action,
         scheduledAt: m === 'schedule' || (m === 'draft' && !Number.isNaN(scheduledAt.getTime())) ? scheduledAt.toISOString() : undefined,
       };
@@ -204,6 +222,31 @@ function Composer() {
     }
     setUploading(null);
     qc.invalidateQueries({ queryKey: ['media'] });
+  }
+
+  const mediaMeta = useMediaMeta(media);
+
+  /** Appends hashtags that are not already in the post, on a trailing hashtag line. */
+  function addHashtags(tags: string[]) {
+    setContent((c) => {
+      const have = new Set((c.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((t) => t.slice(1).toLowerCase()));
+      const fresh = tags.map((t) => t.replace(/^#/, '').replace(/\s+/g, '')).filter((t) => t && !have.has(t.toLowerCase()));
+      if (!fresh.length) return c;
+      const add = fresh.map((t) => `#${t}`).join(' ');
+      const lastLine = c.trimEnd().split('\n').pop() ?? '';
+      return /^(#[\p{L}\p{N}_]+\s*)+$/u.test(lastLine.trim()) ? `${c.trimEnd()} ${add}` : `${c.trimEnd()}${c.trim() ? '\n\n' : ''}${add}`;
+    });
+  }
+
+  function addYtTags(list: string[]) {
+    setYtTags((t) => {
+      const out = [...t];
+      for (const raw of list) {
+        const v = raw.replace(/^#/, '').trim();
+        if (v && !out.some((x) => x.toLowerCase() === v.toLowerCase()) && out.join('').length + v.length <= 480) out.push(v);
+      }
+      return out;
+    });
   }
 
   function insert(snippet: string) {
@@ -262,6 +305,7 @@ function Composer() {
                 setMedia([]);
                 setLink('');
                 setYtTitle('');
+                setYtTags([]);
                 if (postId) router.replace('/composer');
               }}
               className="flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all hover:opacity-90"
@@ -362,6 +406,40 @@ function Composer() {
                     className="mb-3 w-full rounded-xl px-3 py-2 outline-none focus:border-[#2563EB]"
                     style={{ fontSize: 13, border: `1px solid ${C.border2}`, background: '#F8FAFC', color: C.ink }}
                   />
+                )}
+                {providers.includes('YOUTUBE') && (
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl px-3 py-2" style={{ border: `1px solid ${C.border2}`, background: '#F8FAFC' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.faint }}>YouTube tags</span>
+                    {ytTags.map((t) => (
+                      <span key={t} className="flex items-center gap-1 rounded-full bg-white px-2 py-0.5" style={{ fontSize: 12, color: C.slate, border: `1px solid ${C.border2}` }}>
+                        {t}
+                        {!locked && (
+                          <button onClick={() => setYtTags((x) => x.filter((y) => y !== t))} aria-label={`Remove ${t}`}>
+                            <X size={10} color={C.faint} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                    <input
+                      value={tagDraft}
+                      disabled={!!locked}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'Enter' || e.key === ',') && tagDraft.trim()) {
+                          e.preventDefault();
+                          addYtTags(tagDraft.split(','));
+                          setTagDraft('');
+                        }
+                      }}
+                      onBlur={() => {
+                        if (tagDraft.trim()) addYtTags(tagDraft.split(','));
+                        setTagDraft('');
+                      }}
+                      placeholder={ytTags.length ? 'Add tag…' : 'keyword, another keyword… (Enter to add)'}
+                      className="min-w-[140px] flex-1 bg-transparent outline-none"
+                      style={{ fontSize: 12, color: C.ink }}
+                    />
+                  </div>
                 )}
                 <textarea
                   ref={textRef}
@@ -549,6 +627,25 @@ function Composer() {
                 )}
               </div>
             </Card>
+
+            <GrowthAssistant
+              content={content}
+              providers={providers}
+              media={mediaMeta}
+              link={link}
+              title={ytTitle}
+              tags={ytTags}
+              scheduledAt={mode === 'schedule' && !scheduleInvalid ? scheduledAt.toISOString() : undefined}
+              disabled={!!locked || !canEdit}
+              onAddHashtags={addHashtags}
+              onReplaceContent={(t) => setContent(t)}
+              onReplaceHook={(h) => setContent((c) => (c.includes('\n') ? `${h}\n${c.slice(c.indexOf('\n') + 1)}` : h))}
+              onYoutube={(v) => {
+                if (v.title) setYtTitle(v.title.slice(0, 100));
+                if (v.description) setContent(v.description);
+                if (v.tags) addYtTags(v.tags);
+              }}
+            />
 
             <Card className="p-4">
               <p style={{ ...label, marginBottom: 10 }}>Publishing as</p>

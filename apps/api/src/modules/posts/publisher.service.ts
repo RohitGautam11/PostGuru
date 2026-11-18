@@ -58,7 +58,7 @@ export class PublisherService {
       include: { targets: { include: { socialAccount: true } } },
     });
     const media = (post.media as unknown as StoredMedia[]) ?? [];
-    const overrides = (post.overrides as Record<string, { content?: string; title?: string }> | null) ?? {};
+    const overrides = (post.overrides as Record<string, { content?: string; title?: string; tags?: string[] }> | null) ?? {};
 
     const pending = post.targets.filter((t) => t.status === 'PENDING');
     await Promise.allSettled(
@@ -74,6 +74,7 @@ export class PublisherService {
           media: media.map(({ url, type, mimeType, size }) => ({ url, type, mimeType, size })),
           link: post.link,
           title: override.title ?? null,
+          tags: override.tags ?? null,
         };
 
         try {

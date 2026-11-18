@@ -31,7 +31,8 @@ Use a prepared demo workspace with real connected accounts and some past posts (
 |---|---|---|---|
 | 0–2 | **Dashboard** | Open `/dashboard` | "This is your morning view: followers, engagement, what's scheduled today and anything that needs attention." |
 | 2–5 | **Composer** | Write one post, tick Facebook + Instagram + X + LinkedIn, add an image, open the X tab and shorten the text | "One post, four networks. Postly checks each network's rules for you: X allows 280 characters, Instagram needs an image. You can tailor the text for each network." |
-| 5–7 | **Schedule → Planner** | Click *Schedule*, pick tomorrow 10:00, open the Planner, drag the post to another day | "Plan your whole month in a calendar. Change your mind? Drag and drop." |
+| 5–6 | **Growth Assistant** | Paste a weak draft (score ~55). Fix the hook, add a question, click 3 hashtag suggestions, try AI → "Make it viral" | "Watch the score go from 55 to 85. Postly coaches every post for each platform before it goes out. That is how our users grow faster." |
+| 6–7 | **Schedule → Planner** | Click *Schedule*, pick tomorrow 10:00, open the Planner, drag the post to another day | "Plan your whole month in a calendar. Change your mind? Drag and drop." |
 | 7–10 | **Inbox** | Show the unified list, filter by Comments, reply to one, add an internal note, assign it to a teammate, resolve it | "Every Messenger, Instagram and X message and every comment, in one place. Your team can split the work and nothing slips through." |
 | 10–12 | **Analytics** | Switch 7 / 30 / 90 days, point to the top posts and the best-time heatmap, export a PDF | "This shows what actually works and when your audience is online. One click gives you a client-ready report." |
 | 12–14 | **Settings → Team** | Show roles; for agencies, switch workspace | "Give your designer *Editor* access and your client *Viewer* access. Agencies get one workspace per client, all fully separate." |
@@ -49,6 +50,12 @@ For each feature below: what it is, where it is, how to demo it, and the custome
 - **Demo:** show the connected cards with follower counts. Don't connect live, because a slow login screen kills momentum.
 - **Say:** "Connect once. Postly keeps you logged in and warns you before anything expires."
 - **Know:** Instagram must be a **Business or Creator** account linked to a Facebook Page. If a platform shows *Reconnect needed*, the customer changed their password or removed access, and one click fixes it.
+
+### 3.1b Growth Assistant & Growth Hub (lead with this)
+- **Where:** right side of the Composer (Score · Hashtags · AI Writer) and sidebar → Growth Hub.
+- **What:** a 0–100 Growth Score per platform with exact fixes; one-click hashtags (your top performers, niche, long-tail); AI captions, "make it viral", hooks, YouTube SEO and content ideas; a personal growth plan, best formats, best times and video/image specs for all 8 platforms.
+- **Say:** "Other tools publish. Postly helps every post perform."
+- **Details:** see [SALES_HOW_IT_WORKS.md](SALES_HOW_IT_WORKS.md) §2.4 and §2.9.
 
 ### 3.2 Composer (create and publish)
 - **Where:** *Create Post* button (`/composer`)
@@ -158,7 +165,8 @@ Upgrades are self-serve in *Settings → Billing*. Customers can change plans or
 | "Is it safe to connect our accounts?" | "We use each network's official login. We never see your password, tokens are encrypted, and you can disconnect anytime." |
 | "What if a post fails?" | "Postly retries automatically, tells you why, and lets you retry in one click." |
 | "Can my client see results without editing?" | "Yes. Invite them as a Viewer, or send the PDF report." |
-| "Do you support TikTok / Pinterest / Threads?" | "Not today: we support Facebook, Instagram, X, LinkedIn and YouTube. Tell me which one you need and I'll pass it to the product team." |
+| "Which platforms do you support?" | "Facebook, Instagram, X, LinkedIn, YouTube, Threads, TikTok and Pinterest, all from one screen. Need another one? Tell me and I'll pass it to the product team." |
+| "Will it make my posts go viral?" | "No tool can promise that. Postly's Growth Score checks every post against each platform's best practices and your own results, so your odds go up on every post." |
 | "Can I reply to LinkedIn messages?" | "LinkedIn doesn't offer messaging to third-party tools, so no tool can do this. LinkedIn comments are supported." |
 
 ---
@@ -168,7 +176,9 @@ Upgrades are self-serve in *Settings → Billing*. Customers can change plans or
 These are platform limits, not Postly bugs, but promising them will lose trust.
 
 - ❌ **Post-approval workflow** (an "approve before publishing" step). It doesn't exist yet. Roles control who can publish.
-- ❌ **TikTok, Pinterest, Threads, Google Business.** Not supported.
+- ❌ **Google Business Profile, Snapchat, WhatsApp, Telegram, Reddit.** Not supported yet.
+- ❌ **"Guaranteed viral" or "real-time trending hashtags".** Platforms do not share live trend data with tools. Say "suggestions from your own results and curated niche lists".
+- ❌ **Public TikTok posts / live Pinterest pins before app approval.** TikTok posts are private and Pinterest uses a sandbox until each platform approves our app.
 - ❌ **LinkedIn or YouTube direct messages.** These platforms have no public messaging API.
 - ❌ **X direct messages on every account.** This needs X's paid API tier on our side; check before promising.
 - ❌ **Replying to a Facebook message older than 24 hours.** Meta blocks page replies after 24 h.

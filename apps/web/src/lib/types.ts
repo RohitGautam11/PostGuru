@@ -103,7 +103,7 @@ export interface Post {
   content: string;
   media: PostMedia[];
   link: string | null;
-  overrides: Partial<Record<Provider, { content?: string; title?: string }>> | null;
+  overrides: Partial<Record<Provider, { content?: string; title?: string; tags?: string[] }>> | null;
   status: PostStatus;
   scheduledAt: string | null;
   publishedAt: string | null;

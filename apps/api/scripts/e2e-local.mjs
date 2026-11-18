@@ -248,6 +248,30 @@ try {
   expect('Mark all notifications read', await A('POST', '/api/notifications/read-all'), [200, 201, 204]);
 
   // ─── Team, roles, API keys ──────────────────────────────────────────────────
+  // ─── Growth Assistant ───────────────────────────────────────────────────────
+  begin('Growth Assistant');
+  expect('Growth status', await A('GET', '/api/growth/status'), 200);
+  const sc = expect('Content score', await A('POST', '/api/growth/score', {
+    content: '3 mistakes killing your reach 🚀\n\nMost brands post at random. Which one are you guilty of? Comment below 👇\n\n#marketing #socialmedia #contenttips',
+    providers: ['INSTAGRAM', 'X', 'YOUTUBE', 'TIKTOK'], media: [{ type: 'VIDEO', width: 1080, height: 1920, duration: 42 }], tags: ['marketing'],
+  }), 200).body;
+  check('Score is 0–100 for every platform', sc?.platforms?.length === 4 && sc.platforms.every((p) => p.score >= 0 && p.score <= 100 && p.checks.length > 0), sc);
+  check('X flags too many hashtags', sc?.platforms?.find((p) => p.provider === 'X')?.checks.some((c) => /too many/i.test(c.text)), sc?.platforms?.find((p) => p.provider === 'X'));
+  const weak = (await A('POST', '/api/growth/score', { content: 'hello', providers: ['INSTAGRAM'] })).body;
+  check('Weak post scores lower than strong post', weak?.overall < sc?.overall, { weak: weak?.overall, strong: sc?.overall });
+  expect('Score rejects unknown platform', await A('POST', '/api/growth/score', { content: 'x', providers: ['MYSPACE'] }), 400);
+  const ht = expect('Hashtag suggestions', await A('POST', '/api/growth/hashtags', { content: 'New workout plan for our fitness startup', providers: ['INSTAGRAM'] }), 200).body;
+  check('Hashtags match the niche', ht?.niche?.includes('Fitness') && ht.suggestions.length > 0, ht);
+  expect('Growth insights', await A('GET', '/api/growth/insights'), 200);
+  const fm = expect('Format guide', await A('GET', '/api/growth/formats'), 200).body;
+  check('Format guide covers all 8 platforms', Array.isArray(fm) && fm.length === 8, fm?.length);
+  const st = (await A('GET', '/api/growth/status')).body;
+  const as = await A('POST', '/api/growth/assist', { task: 'hooks', content: 'Our new bakery opens Monday', providers: ['INSTAGRAM'] });
+  check(st?.ai ? 'AI Writer returns hooks' : 'AI Writer reports "not configured" cleanly', st?.ai ? as.status === 200 && as.body?.result?.hooks?.length > 0 : as.status === 503, as);
+  expect('AI Writer validates task', await A('POST', '/api/growth/assist', { task: 'hack', content: 'x', providers: ['X'] }), 400);
+  const yt = expect('Save post with YouTube tags', await A('POST', '/api/posts', { content: 'yt draft', accountIds: [fb.id], action: 'draft', overrides: { YOUTUBE: { title: 'My video', tags: ['#marketing', 'growth', 'growth'] } } }), [200, 201]).body;
+  check('YouTube tags are cleaned and de-duplicated', JSON.stringify(yt?.overrides?.YOUTUBE?.tags) === JSON.stringify(['marketing', 'growth']), yt?.overrides);
+
   begin('Team & permissions');
   expect('Workspace info', await A('GET', '/api/workspace'), 200);
   expect('Rename workspace', await A('PATCH', '/api/workspace', { name: 'E2E Agency Renamed' }), 200);
@@ -309,7 +333,7 @@ try {
   // ─── Signed-in pages render (server side) ───────────────────────────────────
   begin('App pages');
   for (const p of ['/dashboard', '/composer', '/planner', '/planner?view=list', '/inbox', '/analytics', '/connect', `/posts/${draft.id}`,
-    '/settings?tab=profile', '/settings?tab=team', '/settings?tab=billing', '/settings?tab=notifications', '/settings?tab=integrations', `/invite/${token}`, '/reset-password?token=x']) {
+    '/settings?tab=profile', '/settings?tab=team', '/settings?tab=billing', '/settings?tab=notifications', '/settings?tab=integrations', '/growth', '/guide', '/composer?draft=1', `/invite/${token}`, '/reset-password?token=x']) {
     const r = await A('GET', p);
     check(`Page ${p}`, [200, 307, 308].includes(r.status) && !/Application error|Internal Server Error/i.test(String(r.body)), `HTTP ${r.status}`);
   }

@@ -264,15 +264,29 @@ export class PostsService {
     return { accountIds, media, overrides, scheduledAt };
   }
 
-  private sanitizeOverrides(raw?: Record<string, { content?: string; title?: string }>) {
+  private sanitizeOverrides(raw?: Record<string, { content?: string; title?: string; tags?: string[] }>) {
     if (!raw) return null;
-    const out: Partial<Record<Provider, { content?: string; title?: string }>> = {};
+    const out: Partial<Record<Provider, { content?: string; title?: string; tags?: string[] }>> = {};
     for (const key of Object.values(Provider)) {
       const v = raw[key];
       if (!v || typeof v !== 'object') continue;
       const content = typeof v.content === 'string' ? v.content.slice(0, 63206) : undefined;
       const title = typeof v.title === 'string' ? v.title.slice(0, 100) : undefined;
-      if (content || title) out[key] = { content, title };
+      // YouTube allows up to 500 characters of tags in total.
+      let tags: string[] | undefined;
+      if (Array.isArray(v.tags)) {
+        tags = [];
+        let total = 0;
+        for (const t of v.tags) {
+          if (typeof t !== 'string') continue;
+          const clean = t.replace(/^#/, '').replace(/[<>]/g, '').trim().slice(0, 100);
+          if (!clean || tags.includes(clean) || total + clean.length > 500) continue;
+          tags.push(clean);
+          total += clean.length;
+        }
+        if (!tags.length) tags = undefined;
+      }
+      if (content || title || tags) out[key] = { content, title, tags };
     }
     return Object.keys(out).length ? out : null;
   }

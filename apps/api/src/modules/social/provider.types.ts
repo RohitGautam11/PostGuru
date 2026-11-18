@@ -57,6 +57,8 @@ export interface PublishInput {
   link?: string | null;
   /** Used by YouTube (video title). */
   title?: string | null;
+  /** SEO keywords/tags (YouTube video tags). */
+  tags?: string[] | null;
 }
 
 export interface PublishResult {

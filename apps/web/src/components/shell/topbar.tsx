@@ -17,6 +17,8 @@ const TITLES: Record<string, string> = {
   '/planner': 'Planner',
   '/inbox': 'Inbox',
   '/analytics': 'Analytics',
+  '/growth': 'Growth Hub',
+  '/guide': 'Guide',
   '/settings': 'Settings',
   '/connect': 'Connect Accounts',
 };

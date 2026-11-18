@@ -48,7 +48,7 @@ export class UpsertPostDto {
   /** Per-platform customisation, keyed by provider: { X: { content: '...' }, YOUTUBE: { title: '...' } } */
   @IsOptional()
   @IsObject()
-  overrides?: Record<string, { content?: string; title?: string }>;
+  overrides?: Record<string, { content?: string; title?: string; tags?: string[] }>;
 }
 
 export class ListPostsQuery {
