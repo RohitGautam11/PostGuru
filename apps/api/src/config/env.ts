@@ -16,7 +16,9 @@ const schema = z.object({
   CRON_SECRET: z.string().min(8).optional(),
   ENABLE_INTERNAL_SCHEDULER: bool,
 
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /** local = disk (dev only); s3 = S3/R2/Supabase Storage; blob = Vercel Blob (BLOB_READ_WRITE_TOKEN). */
+  STORAGE_DRIVER: z.enum(['local', 's3', 'blob']).default('local'),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().default('auto'),
   S3_ENDPOINT: z.string().optional(),

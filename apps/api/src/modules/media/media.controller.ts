@@ -12,7 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsInt, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import { extname } from 'path';
 import { env } from '../../config/env';
 import { randomToken } from '../../common/crypto';
@@ -30,6 +30,8 @@ class UploadRequestDto {
 
 class CompleteUploadDto extends UploadRequestDto {
   @IsString() @MaxLength(300) key: string;
+  /** Vercel Blob: the public URL returned by the upload. */
+  @IsOptional() @IsString() @MaxLength(600) url?: string;
 }
 
 @Controller('media')
@@ -58,6 +60,7 @@ export class MediaController {
     this.assertSize(dto.size);
     const key = this.makeKey(user.workspaceId, dto.fileName, dto.mimeType);
     if (this.storage.driver === 'local') return { mode: 'local', key };
+    if (this.storage.driver === 'blob') return { mode: 'blob', key, clientToken: await this.storage.blobClientToken(key, dto.mimeType) };
     return { mode: 's3', key, uploadUrl: await this.storage.presignPut(key, dto.mimeType, dto.size) };
   }
 
@@ -80,6 +83,7 @@ export class MediaController {
   @Post('complete')
   async complete(@CurrentUser() user: AuthUser, @Body() dto: CompleteUploadDto) {
     if (!dto.key.startsWith(`${user.workspaceId}/`)) throw new BadRequestException('Invalid key');
+    if (dto.url && !this.storage.isBlobUrlFor(dto.url, dto.key)) throw new BadRequestException('Invalid upload URL');
     return this.register(user, dto);
   }
 
@@ -88,7 +92,7 @@ export class MediaController {
   async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     const asset = await this.prisma.mediaAsset.findFirst({ where: { id, workspaceId: user.workspaceId } });
     if (!asset) throw new NotFoundException('Media not found');
-    await this.storage.remove(asset.key).catch(() => undefined);
+    await this.storage.remove(asset.key, asset.url).catch(() => undefined);
     await this.prisma.mediaAsset.delete({ where: { id } });
     return { ok: true };
   }
@@ -99,7 +103,7 @@ export class MediaController {
         workspaceId: user.workspaceId,
         uploaderId: user.id,
         key: dto.key,
-        url: this.storage.publicUrl(dto.key),
+        url: this.storage.driver === 'blob' && dto.url ? dto.url : this.storage.publicUrl(dto.key),
         fileName: dto.fileName.slice(0, 200),
         mimeType: dto.mimeType,
         size: dto.size,

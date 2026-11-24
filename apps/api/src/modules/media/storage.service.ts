@@ -1,6 +1,8 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { del as blobDelete } from '@vercel/blob';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
 import { promises as fs } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { env } from '../../config/env';
@@ -30,9 +32,42 @@ export class StorageService {
     return this.s3;
   }
 
+  private blobToken() {
+    const token = env().BLOB_READ_WRITE_TOKEN;
+    if (!token) throw new InternalServerErrorException('Vercel Blob storage is not configured (BLOB_READ_WRITE_TOKEN)');
+    return token;
+  }
+
+  /** Vercel Blob: a short-lived client token that only allows uploading this one pathname. */
+  async blobClientToken(key: string, mimeType: string) {
+    return generateClientTokenFromReadWriteToken({
+      token: this.blobToken(),
+      pathname: key,
+      allowedContentTypes: [mimeType],
+      maximumSizeInBytes: env().MAX_UPLOAD_MB * 1024 * 1024,
+      addRandomSuffix: false,
+      validUntil: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
+  /** True if `url` is the public Vercel Blob URL of `key` (as returned to the browser after upload). */
+  isBlobUrlFor(url: string, key: string) {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && u.hostname.endsWith('.public.blob.vercel-storage.com') && decodeURIComponent(u.pathname) === `/${key}`;
+    } catch {
+      return false;
+    }
+  }
+
   publicUrl(key: string) {
     const e = env();
     if (this.driver === 'local') return `${e.WEB_URL}/api/uploads/${key}`;
+    if (this.driver === 'blob') {
+      // Read-write tokens look like vercel_blob_rw_<storeId>_<secret>.
+      const storeId = (e.BLOB_READ_WRITE_TOKEN ?? '').split('_')[3]?.toLowerCase();
+      return `https://${storeId}.public.blob.vercel-storage.com/${key}`;
+    }
     const base = e.S3_PUBLIC_URL || `https://${e.S3_BUCKET}.s3.${e.S3_REGION}.amazonaws.com`;
     return `${base.replace(/\/$/, '')}/${key}`;
   }
@@ -56,7 +91,11 @@ export class StorageService {
     await fs.writeFile(path, buffer);
   }
 
-  async remove(key: string) {
+  async remove(key: string, url?: string) {
+    if (this.driver === 'blob') {
+      await blobDelete(url ?? this.publicUrl(key), { token: this.blobToken() });
+      return;
+    }
     if (this.driver === 'local') {
       const path = join(LOCAL_UPLOAD_DIR, key);
       if (path.startsWith(LOCAL_UPLOAD_DIR)) await fs.rm(path, { force: true });
