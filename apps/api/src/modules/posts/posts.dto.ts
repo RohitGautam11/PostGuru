@@ -17,6 +17,18 @@ import {
 export const POST_ACTIONS = ['draft', 'schedule', 'publish'] as const;
 export type PostAction = (typeof POST_ACTIONS)[number];
 
+export interface PostOverride {
+  content?: string;
+  title?: string;
+  tags?: string[];
+  /** X: split long text into a numbered thread. */
+  thread?: boolean;
+  /** Instagram / Facebook: move hashtags from the caption into the first comment. */
+  hashtagsInFirstComment?: boolean;
+  /** Instagram / Facebook: custom first comment. */
+  firstComment?: string;
+}
+
 export class UpsertPostDto {
   @IsString()
   @MaxLength(63206)
@@ -48,7 +60,7 @@ export class UpsertPostDto {
   /** Per-platform customisation, keyed by provider: { X: { content: '...' }, YOUTUBE: { title: '...' } } */
   @IsOptional()
   @IsObject()
-  overrides?: Record<string, { content?: string; title?: string; tags?: string[] }>;
+  overrides?: Record<string, PostOverride>;
 }
 
 export class ListPostsQuery {

@@ -160,11 +160,23 @@ export class XProvider implements SocialProvider {
     const mediaIds: string[] = [];
     for (const m of items) mediaIds.push(await this.uploadMedia(ctx, m.url, m.type));
 
+    // Long posts go out as a thread: media on the first tweet, the rest as a reply chain.
+    const parts = input.thread && input.thread.length > 1 ? [...input.thread] : [text];
+    if (parts.length > 1 && input.link && !parts.some((p) => p.includes(input.link!))) parts[parts.length - 1] += ` ${input.link}`;
     const res = await request<{ data: { id: string } }>(`${API}/tweets`, {
       method: 'POST',
       headers: this.auth(ctx),
-      json: { text, ...(mediaIds.length ? { media: { media_ids: mediaIds } } : {}) },
+      json: { text: parts[0], ...(mediaIds.length ? { media: { media_ids: mediaIds } } : {}) },
     });
+    let previous = res.data.id;
+    for (const part of parts.slice(1)) {
+      const reply = await request<{ data: { id: string } }>(`${API}/tweets`, {
+        method: 'POST',
+        headers: this.auth(ctx),
+        json: { text: part, reply: { in_reply_to_tweet_id: previous } },
+      });
+      previous = reply.data.id;
+    }
     return { externalId: res.data.id, permalink: `https://x.com/${ctx.username ?? 'i'}/status/${res.data.id}` };
   }
 

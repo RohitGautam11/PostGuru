@@ -5,6 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AccountsService } from '../social/accounts.service';
 import { PublishInput, PublishMedia } from '../social/provider.types';
+import { extractHashtags, splitThread } from '../../common/thread';
+import type { PostOverride } from './posts.dto';
 
 const MAX_ATTEMPTS = 3;
 const STALE_LOCK_MS = 15 * 60 * 1000;
@@ -58,7 +60,7 @@ export class PublisherService {
       include: { targets: { include: { socialAccount: true } } },
     });
     const media = (post.media as unknown as StoredMedia[]) ?? [];
-    const overrides = (post.overrides as Record<string, { content?: string; title?: string; tags?: string[] }> | null) ?? {};
+    const overrides = (post.overrides as Record<string, PostOverride> | null) ?? {};
 
     const pending = post.targets.filter((t) => t.status === 'PENDING');
     await Promise.allSettled(
@@ -68,9 +70,18 @@ export class PublisherService {
           where: { id: target.id },
           data: { status: 'PUBLISHING', attempts: { increment: 1 }, error: null },
         });
-        const override = overrides[account.provider] ?? {};
+        const override: PostOverride = overrides[account.provider] ?? {};
+        let text = override.content?.trim() ? override.content : post.content;
+        let firstComment = override.firstComment?.trim() || null;
+        if (override.hashtagsInFirstComment) {
+          const split = extractHashtags(text);
+          text = split.body;
+          firstComment = [firstComment, split.hashtags].filter(Boolean).join('\n\n') || null;
+        }
         const input: PublishInput = {
-          text: override.content?.trim() ? override.content : post.content,
+          text,
+          firstComment,
+          thread: account.provider === 'X' && override.thread ? splitThread(text, 280) : null,
           media: media.map(({ url, type, mimeType, size }) => ({ url, type, mimeType, size })),
           link: post.link,
           title: override.title ?? null,

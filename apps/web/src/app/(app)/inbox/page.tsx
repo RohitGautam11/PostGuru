@@ -39,6 +39,7 @@ import { C, GRADIENT } from '@/lib/design';
 import { useCan, useMe } from '@/lib/hooks';
 import { PLATFORMS, PROVIDER_ORDER, PlatformBadge } from '@/lib/platforms';
 import type { InboxThread, Provider, ThreadMessage, ThreadNote, ThreadType } from '@/lib/types';
+import { AiReplySuggestions, PresenceBanner, useThreadPresence } from '@/components/inbox/collab';
 import { cn, initials, shortAge } from '@/lib/utils';
 
 const TYPES: Record<ThreadType, { label: string; color: string }> = {
@@ -347,6 +348,7 @@ function ReplyBox({
 }) {
   const [text, setText] = useState('');
   const [emoji, setEmoji] = useState(false);
+  const others = useThreadPresence(thread.id, text.trim().length > 0);
   const p = PLATFORMS[thread.provider];
   const limit = thread.provider === 'X' ? 280 : null;
   const left = limit ? limit - [...text].length : null;
@@ -360,7 +362,9 @@ function ReplyBox({
   };
   return (
     <div className="flex-shrink-0 px-3 pb-4 pt-3 sm:px-5 sm:pb-5">
+      <PresenceBanner others={others} />
       <div className="relative overflow-visible rounded-2xl bg-white" style={{ border: `1px solid ${C.border}`, boxShadow: '0 1px 4px rgba(15,23,42,0.05)' }}>
+        <AiReplySuggestions thread={thread} messages={thread.messages} replyTo={replyTo} dm={dm} onPick={setText} />
         {replyTo && !dm && (
           <div className="flex items-center gap-2 px-5 pt-3" style={{ fontSize: 12, color: C.faint }}>
             Replying to <span style={{ color: C.body, fontWeight: 600 }}>{replyTo.author}</span>

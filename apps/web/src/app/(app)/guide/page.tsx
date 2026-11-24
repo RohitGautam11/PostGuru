@@ -13,7 +13,7 @@ const SECTIONS = [
     href: '/connect',
     steps: [
       'Open Connect Account and click Connect on a platform.',
-      'Log in on the platform\'s own page and approve access. Postly never sees your password.',
+      'Log in on the platform\'s own page and approve access. PostGuru never sees your password.',
       'Instagram must be a Business/Creator account linked to a Facebook Page. Pinterest shows one entry per board.',
       'If an account shows "Reconnect needed", click it and log in again.',
     ],
@@ -25,7 +25,7 @@ const SECTIONS = [
     steps: [
       'Choose which accounts to post to (you can pick several platforms at once).',
       'Write the caption, add images or a video, and check the live preview for each platform.',
-      'Postly blocks mistakes before publishing: too many characters, a missing video for TikTok/YouTube, etc.',
+      'PostGuru blocks mistakes before publishing: too many characters, a missing video for TikTok/YouTube, etc.',
       'For YouTube, add a title and tags; for Pinterest, the first line becomes the Pin title.',
     ],
   },
@@ -47,7 +47,7 @@ const SECTIONS = [
     steps: [
       'Pick Schedule in the composer and use the "Best time" suggestion.',
       'In the Planner, drag posts to another day to reschedule. Switch to list view to search.',
-      'Postly publishes automatically, retries on temporary errors and notifies you if something fails.',
+      'PostGuru publishes automatically, retries on temporary errors and notifies you if something fails.',
     ],
   },
   {
@@ -94,7 +94,7 @@ export default function GuidePage() {
       <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: '-0.03em' }}>Guide</h1>
-          <p style={{ fontSize: 13, color: C.faint }}>How to use Postly and a simple routine to grow every account.</p>
+          <p style={{ fontSize: 13, color: C.faint }}>How to use PostGuru and a simple routine to grow every account.</p>
         </div>
 
         <GettingStarted />

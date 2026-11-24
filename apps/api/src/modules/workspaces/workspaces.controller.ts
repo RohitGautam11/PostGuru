@@ -19,7 +19,7 @@ import { API_KEY_PREFIX } from '../../common/guards';
 import { INVITE_LINK_PREFIX } from '../auth/auth.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuthUser, CurrentUser, MinRole, ROLE_RANK } from '../../common/decorators';
-import { PLAN_LIMITS } from '../../common/plans';
+import { atLimit, limitsFor, trialEndsAt } from '../../common/plans';
 import { PrismaService } from '../../prisma/prisma.service';
 
 class UpdateWorkspaceDto {
@@ -58,7 +58,8 @@ export class WorkspacesController {
       where: { id: user.workspaceId },
       select: { id: true, name: true, plan: true, subscriptionStatus: true, currentPeriodEnd: true, createdAt: true },
     });
-    return { ...ws, limits: PLAN_LIMITS[ws.plan] };
+    const limits = limitsFor(ws);
+    return { ...ws, limits, effectivePlan: limits.key, trial: limits.trial, beta: limits.beta, trialEndsAt: trialEndsAt(ws) };
   }
 
   /** Creates a new workspace owned by the current user (switch to it with POST /auth/switch-workspace). */
@@ -106,8 +107,9 @@ export class WorkspacesController {
       this.prisma.membership.count({ where: { workspaceId: ws.id } }),
       this.prisma.invitation.count({ where: { workspaceId: ws.id, acceptedAt: null, expiresAt: { gt: new Date() } } }),
     ]);
-    if (memberCount + pending >= PLAN_LIMITS[ws.plan].members) {
-      throw new ForbiddenException(`Your ${PLAN_LIMITS[ws.plan].name} plan allows ${PLAN_LIMITS[ws.plan].members} member(s). Upgrade to invite more.`);
+    const limits = limitsFor(ws);
+    if (atLimit(memberCount + pending, limits.members)) {
+      throw new ForbiddenException(`Your ${limits.name} plan allows ${limits.members} member(s). Upgrade to invite more.`);
     }
     const already = await this.prisma.membership.findFirst({ where: { workspaceId: ws.id, user: { email: dto.email } } });
     if (already) throw new BadRequestException('This person is already a member');

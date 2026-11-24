@@ -54,7 +54,8 @@ export class YouTubeProvider implements SocialProvider {
     u.searchParams.set('response_type', 'code');
     u.searchParams.set('scope', SCOPES.join(' '));
     u.searchParams.set('access_type', 'offline');
-    u.searchParams.set('prompt', 'consent');
+    // select_account shows Google's channel picker (personal channel or Brand Account) on every connect.
+    u.searchParams.set('prompt', 'select_account consent');
     u.searchParams.set('include_granted_scopes', 'true');
     u.searchParams.set('state', state);
     u.searchParams.set('code_challenge', codeChallenge ?? '');

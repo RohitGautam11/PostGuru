@@ -7,7 +7,7 @@ async function main() {
   const app = await createApp();
   const port = env().PORT;
   await app.listen(port, '0.0.0.0');
-  Logger.log(`SocialHub API listening on http://localhost:${port}/api`, 'Bootstrap');
+  Logger.log(`PostGuru API listening on http://localhost:${port}/api`, 'Bootstrap');
 }
 
 main().catch((err) => {

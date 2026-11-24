@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { APP_NAME } from '@/components/logo';
+import { AccountTypeWizard, WIZARD_PROVIDERS } from '@/components/connect/account-type-wizard';
 import { ConfirmDialog, Dropdown, MenuItem, Modal, PageLoader } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
 import { C, GRADIENT } from '@/lib/design';
@@ -34,6 +35,7 @@ function ConnectView() {
   const { data: integrations } = useIntegrations();
   const [modal, setModal] = useState<ModalState>(null);
   const [toRemove, setToRemove] = useState<SocialAccount | null>(null);
+  const [wizard, setWizard] = useState<Provider | null>(null);
   const handled = useRef(false);
 
   // Result of the OAuth round-trip (?connected=… or ?error=…).
@@ -55,11 +57,25 @@ function ConnectView() {
     router.replace('/connect');
   }, [params, qc, router]);
 
-  async function connect(provider: Provider) {
+  /** Entry point from the UI: platforms with personal vs business accounts first show the routing wizard. */
+  function startConnect(provider: Provider, account?: SocialAccount) {
     if (!canConnect) return toast.error('Only workspace owners and admins can connect accounts.');
+    // Reconnecting an existing Instagram account reuses the login type it was connected with.
+    if (account?.provider === 'INSTAGRAM') {
+      const creator = account.tokenExpiresAt !== null;
+      return connect(provider, creator ? 'creator' : 'business');
+    }
+    if (account) return connect(provider);
+    if (WIZARD_PROVIDERS.includes(provider)) return setWizard(provider);
+    return connect(provider);
+  }
+
+  async function connect(provider: Provider, mode?: string) {
+    if (!canConnect) return toast.error('Only workspace owners and admins can connect accounts.');
+    setWizard(null);
     setModal({ provider, state: 'connecting' });
     try {
-      const { url } = await api<{ url: string }>(`/integrations/${provider.toLowerCase()}/connect`);
+      const { url } = await api<{ url: string }>(`/integrations/${provider.toLowerCase()}/connect`, { query: { mode } });
       sessionStorage.setItem('connecting', provider);
       setTimeout(() => (window.location.href = url), 600);
     } catch (e) {
@@ -159,7 +175,7 @@ function ConnectView() {
                       </div>
                       <div className="flex items-center gap-2">
                         {state !== 'active' ? (
-                          <button onClick={() => connect(a.provider)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 transition-all hover:opacity-80" style={{ fontSize: 12, fontWeight: 500, color: s.color, background: s.bg }}>
+                          <button onClick={() => startConnect(a.provider, a)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 transition-all hover:opacity-80" style={{ fontSize: 12, fontWeight: 500, color: s.color, background: s.bg }}>
                             <RefreshCw size={11} strokeWidth={2.5} /> Reconnect
                           </button>
                         ) : (
@@ -177,7 +193,7 @@ function ConnectView() {
                                 Sync now
                               </MenuItem>
                               {canConnect && (
-                                <MenuItem icon={<Loader size={13} />} onClick={() => connect(a.provider)}>
+                                <MenuItem icon={<Loader size={13} />} onClick={() => startConnect(a.provider, a)}>
                                   Refresh permissions
                                 </MenuItem>
                               )}
@@ -216,7 +232,7 @@ function ConnectView() {
                       <p style={{ fontSize: 12, color: C.faint, lineHeight: 1.4, marginTop: 2 }}>{configured ? s.description : 'Not configured on the server yet — add the API keys to enable it.'}</p>
                     </div>
                     <button
-                      onClick={() => connect(p)}
+                      onClick={() => startConnect(p)}
                       disabled={!configured || !canConnect}
                       className="flex flex-shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all hover:opacity-90 disabled:cursor-not-allowed"
                       style={{ fontSize: 13, fontWeight: 500, color: '#fff', background: configured && canConnect ? C.blue : '#CBD5E1' }}
@@ -273,7 +289,7 @@ function ConnectView() {
                 </div>
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>Connection failed</h3>
                 <p style={{ fontSize: 14, color: C.muted, marginTop: 8 }}>{modal.message ?? `We couldn't connect your ${PLATFORMS[modal.provider].label} account. Please try again.`}</p>
-                <button onClick={() => connect(modal.provider)} className="mt-6 w-full rounded-xl py-3 transition-all hover:opacity-90" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: C.red }}>
+                <button onClick={() => startConnect(modal.provider)} className="mt-6 w-full rounded-xl py-3 transition-all hover:opacity-90" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: C.red }}>
                   Try again
                 </button>
               </>
@@ -281,6 +297,12 @@ function ConnectView() {
           </div>
         )}
       </Modal>
+      <AccountTypeWizard
+        provider={wizard}
+        integration={integrations?.find((i) => i.key === wizard)}
+        onClose={() => setWizard(null)}
+        onConnect={(p, mode) => connect(p, mode)}
+      />
       <ConfirmDialog
         open={!!toRemove}
         onClose={() => setToRemove(null)}

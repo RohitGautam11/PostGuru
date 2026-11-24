@@ -48,6 +48,8 @@ interface MetaPage {
   followers_count?: number;
   fan_count?: number;
   picture?: { data?: { url?: string } };
+  /** App-scoped id of the Facebook user who connected the Page (used for data-deletion callbacks). */
+  ownerId?: string;
   instagram_business_account?: {
     id: string;
     username?: string;
@@ -81,7 +83,8 @@ async function exchangeAndListPages(code: string, redirectUri: string): Promise<
         'instagram_business_account{id,username,name,profile_picture_url,followers_count}',
     },
   });
-  const list = pages.data ?? [];
+  const owner = await request<{ id: string }>(`${graph()}/me`, { query: { access_token: long.access_token, fields: 'id' } }).catch(() => null);
+  const list = (pages.data ?? []).map((p) => ({ ...p, ownerId: owner?.id }));
   // Subscribe each Page to our app's webhooks so comments/messages arrive in real time (best effort).
   await Promise.all(
     list.map((p) =>
@@ -105,6 +108,24 @@ function metaAuthUrl(scopes: string[], state: string, redirectUri: string) {
 }
 
 const metaConfigured = () => Boolean(env().META_APP_ID && env().META_APP_SECRET);
+
+// ── Instagram API with Instagram Login (creators & influencers, no Facebook Page required) ──
+const IG_LOGIN_SCOPES = [
+  'instagram_business_basic',
+  'instagram_business_content_publish',
+  'instagram_business_manage_comments',
+  'instagram_business_manage_messages',
+];
+const igGraph = () => `https://graph.instagram.com/${env().META_GRAPH_VERSION}`;
+const igAppId = () => env().INSTAGRAM_APP_ID ?? env().META_APP_ID;
+const igAppSecret = () => env().INSTAGRAM_APP_SECRET ?? env().META_APP_SECRET;
+const igLoginConfigured = () => Boolean(igAppId() && igAppSecret());
+/** Accounts connected with Instagram Login live on graph.instagram.com; the rest on graph.facebook.com. */
+const igBase = (ctx?: { metadata?: Record<string, any> }) => (ctx?.metadata?.loginType === 'instagram' ? igGraph() : graph());
+
+export const CREATOR_SWITCH_HELP =
+  'Personal Instagram profiles cannot be scheduled by any app. Switch to a free Creator account in 30 seconds: ' +
+  'Instagram → Settings → Account type and tools → Switch to professional account → Creator. Then connect again.';
 
 function withLink(text: string, link?: string | null) {
   return link && !text.includes(link) ? `${text}\n\n${link}`.trim() : text;
@@ -151,7 +172,7 @@ export class FacebookProvider implements SocialProvider {
       expiresAt: null,
       scopes: FACEBOOK_SCOPES,
       followers: p.followers_count ?? p.fan_count ?? null,
-      metadata: {},
+      metadata: { fbUserId: p.ownerId ?? null },
     }));
   }
 
@@ -200,6 +221,12 @@ export class FacebookProvider implements SocialProvider {
       postId = res.id;
     }
 
+    if (input.firstComment) {
+      await request(`${graph()}/${postId}/comments`, {
+        method: 'POST',
+        form: { access_token: token, message: input.firstComment },
+      }).catch(() => undefined); // best effort: the post itself is live
+    }
     const permalink = await request<{ permalink_url?: string }>(`${graph()}/${postId}`, {
       query: { access_token: token, fields: 'permalink_url' },
     })
@@ -331,18 +358,93 @@ export class InstagramProvider implements SocialProvider {
     analytics: true,
   };
 
-  isConfigured = metaConfigured;
+  isConfigured = () => metaConfigured() || igLoginConfigured();
 
-  getAuthUrl({ state, redirectUri }: { state: string; redirectUri: string }) {
+  /** "creator" = Instagram Login (no Facebook Page); "business" = Facebook Login for Business (linked Page). */
+  modes() {
+    return [
+      { key: 'creator', configured: igLoginConfigured() },
+      { key: 'business', configured: metaConfigured() },
+    ];
+  }
+
+  getAuthUrl({ state, redirectUri, mode }: { state: string; redirectUri: string; mode?: string | null }) {
+    if (mode === 'creator' || !metaConfigured()) {
+      const u = new URL('https://www.instagram.com/oauth/authorize');
+      u.searchParams.set('client_id', igAppId() ?? '');
+      u.searchParams.set('redirect_uri', redirectUri);
+      u.searchParams.set('response_type', 'code');
+      u.searchParams.set('scope', IG_LOGIN_SCOPES.join(','));
+      u.searchParams.set('state', state);
+      return u.toString();
+    }
     return metaAuthUrl(INSTAGRAM_SCOPES, state, redirectUri);
   }
 
-  async handleCallback({ code, redirectUri }: { code: string; redirectUri: string }): Promise<ConnectedAccount[]> {
+  /** Instagram Login: code → short-lived token → 60-day token → professional account profile. */
+  private async creatorCallback(code: string, redirectUri: string): Promise<ConnectedAccount[]> {
+    const raw = await request<any>('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      form: {
+        client_id: igAppId() ?? '',
+        client_secret: igAppSecret() ?? '',
+        grant_type: 'authorization_code',
+        redirect_uri: redirectUri,
+        code,
+      },
+    });
+    const short = Array.isArray(raw?.data) ? raw.data[0] : raw;
+    const long = await request<{ access_token: string; expires_in?: number }>('https://graph.instagram.com/access_token', {
+      query: { grant_type: 'ig_exchange_token', client_secret: igAppSecret(), access_token: short.access_token },
+    });
+    const me = await request<{
+      id: string;
+      user_id?: string;
+      username?: string;
+      name?: string;
+      account_type?: string;
+      profile_picture_url?: string;
+      followers_count?: number;
+    }>(`${igGraph()}/me`, {
+      query: { access_token: long.access_token, fields: 'id,user_id,username,name,account_type,profile_picture_url,followers_count' },
+    });
+    if (me.account_type && !['BUSINESS', 'MEDIA_CREATOR', 'CREATOR'].includes(me.account_type.toUpperCase())) {
+      throw new ProviderError(CREATOR_SWITCH_HELP);
+    }
+    return [
+      {
+        provider: Provider.INSTAGRAM,
+        externalId: String(me.user_id ?? me.id),
+        name: me.name || me.username || 'Instagram',
+        username: me.username ?? null,
+        avatarUrl: me.profile_picture_url ?? null,
+        accessToken: long.access_token,
+        // Instagram refreshes the long-lived token itself (no separate refresh token).
+        refreshToken: long.access_token,
+        expiresAt: new Date(Date.now() + (long.expires_in ?? 60 * 86400) * 1000),
+        scopes: IG_LOGIN_SCOPES,
+        followers: me.followers_count ?? null,
+        metadata: { loginType: 'instagram', accountType: me.account_type ?? null },
+      },
+    ];
+  }
+
+  /** Long-lived Instagram Login tokens last 60 days and can be refreshed once they are 24h old. */
+  async refreshTokens(refreshToken: string) {
+    const r = await request<{ access_token: string; expires_in: number }>('https://graph.instagram.com/refresh_access_token', {
+      query: { grant_type: 'ig_refresh_token', access_token: refreshToken },
+    });
+    return { accessToken: r.access_token, refreshToken: r.access_token, expiresAt: new Date(Date.now() + r.expires_in * 1000) };
+  }
+
+  async handleCallback({ code, redirectUri, mode }: { code: string; redirectUri: string; mode?: string | null }): Promise<ConnectedAccount[]> {
+    if (mode === 'creator' || !metaConfigured()) return this.creatorCallback(code, redirectUri);
     const pages = await exchangeAndListPages(code, redirectUri);
     const linked = pages.filter((p) => p.instagram_business_account);
     if (!linked.length) {
       throw new ProviderError(
-        'No Instagram Business/Creator account found. Link your Instagram account to a Facebook Page and try again.',
+        'No Instagram Business account is linked to the Facebook Pages you shared. Creators can use "Connect Creator Profile" instead (no Facebook Page needed). ' +
+          CREATOR_SWITCH_HELP,
       );
     }
     return linked.map((p) => {
@@ -358,15 +460,15 @@ export class InstagramProvider implements SocialProvider {
         expiresAt: null,
         scopes: INSTAGRAM_SCOPES,
         followers: ig.followers_count ?? null,
-        metadata: { pageId: p.id, pageName: p.name },
+        metadata: { pageId: p.id, pageName: p.name, loginType: 'facebook', fbUserId: p.ownerId ?? null },
       };
     });
   }
 
-  private async waitForContainer(id: string, token: string) {
+  private async waitForContainer(id: string, token: string, ctx?: AccountContext) {
     const deadline = Date.now() + 120_000;
     while (Date.now() < deadline) {
-      const s = await request<{ status_code: string; status?: string }>(`${graph()}/${id}`, {
+      const s = await request<{ status_code: string; status?: string }>(`${igBase(ctx)}/${id}`, {
         query: { access_token: token, fields: 'status_code,status' },
       });
       if (s.status_code === 'FINISHED') return;
@@ -391,7 +493,7 @@ export class InstagramProvider implements SocialProvider {
         m.type === 'VIDEO'
           ? { access_token: token, caption, media_type: 'REELS', video_url: m.url }
           : { access_token: token, caption, image_url: m.url };
-      containerId = (await request<{ id: string }>(`${graph()}/${ig}/media`, { method: 'POST', form })).id;
+      containerId = (await request<{ id: string }>(`${igBase(ctx)}/${ig}/media`, { method: 'POST', form })).id;
     } else {
       const children: string[] = [];
       for (const m of input.media.slice(0, this.capabilities.maxImages)) {
@@ -399,24 +501,30 @@ export class InstagramProvider implements SocialProvider {
           m.type === 'VIDEO'
             ? { access_token: token, media_type: 'VIDEO', video_url: m.url, is_carousel_item: 'true' }
             : { access_token: token, image_url: m.url, is_carousel_item: 'true' };
-        const child = await request<{ id: string }>(`${graph()}/${ig}/media`, { method: 'POST', form });
-        if (m.type === 'VIDEO') await this.waitForContainer(child.id, token);
+        const child = await request<{ id: string }>(`${igBase(ctx)}/${ig}/media`, { method: 'POST', form });
+        if (m.type === 'VIDEO') await this.waitForContainer(child.id, token, ctx);
         children.push(child.id);
       }
       containerId = (
-        await request<{ id: string }>(`${graph()}/${ig}/media`, {
+        await request<{ id: string }>(`${igBase(ctx)}/${ig}/media`, {
           method: 'POST',
           form: { access_token: token, caption, media_type: 'CAROUSEL', children: children.join(',') },
         })
       ).id;
     }
 
-    await this.waitForContainer(containerId, token);
-    const published = await request<{ id: string }>(`${graph()}/${ig}/media_publish`, {
+    await this.waitForContainer(containerId, token, ctx);
+    const published = await request<{ id: string }>(`${igBase(ctx)}/${ig}/media_publish`, {
       method: 'POST',
       form: { access_token: token, creation_id: containerId },
     });
-    const permalink = await request<{ permalink?: string }>(`${graph()}/${published.id}`, {
+    if (input.firstComment) {
+      await request(`${igBase(ctx)}/${published.id}/comments`, {
+        method: 'POST',
+        form: { access_token: token, message: input.firstComment },
+      }).catch(() => undefined); // best effort: the post itself is live
+    }
+    const permalink = await request<{ permalink?: string }>(`${igBase(ctx)}/${published.id}`, {
       query: { access_token: token, fields: 'permalink' },
     })
       .then((r) => r.permalink ?? null)
@@ -425,7 +533,7 @@ export class InstagramProvider implements SocialProvider {
   }
 
   async fetchComments(ctx: AccountContext): Promise<RemoteComment[]> {
-    const media = await request<{ data: any[] }>(`${graph()}/${ctx.externalId}/media`, {
+    const media = await request<{ data: any[] }>(`${igBase(ctx)}/${ctx.externalId}/media`, {
       query: { access_token: ctx.accessToken, fields: 'id,caption,permalink,comments_count', limit: 15 },
     });
     const out: RemoteComment[] = [];
@@ -448,7 +556,7 @@ export class InstagramProvider implements SocialProvider {
 
     for (const m of media.data ?? []) {
       if (!m.comments_count) continue;
-      const comments = await request<{ data: any[] }>(`${graph()}/${m.id}/comments`, {
+      const comments = await request<{ data: any[] }>(`${igBase(ctx)}/${m.id}/comments`, {
         query: {
           access_token: ctx.accessToken,
           fields:
@@ -466,7 +574,7 @@ export class InstagramProvider implements SocialProvider {
   }
 
   async replyToComment(ctx: AccountContext, comment: { externalId: string }, text: string) {
-    const res = await request<{ id: string }>(`${graph()}/${comment.externalId}/replies`, {
+    const res = await request<{ id: string }>(`${igBase(ctx)}/${comment.externalId}/replies`, {
       method: 'POST',
       form: { access_token: ctx.accessToken, message: text },
     });
@@ -474,31 +582,38 @@ export class InstagramProvider implements SocialProvider {
   }
 
   async hideComment(ctx: AccountContext, externalId: string, hidden: boolean) {
-    await request(`${graph()}/${externalId}`, {
+    await request(`${igBase(ctx)}/${externalId}`, {
       method: 'POST',
       form: { access_token: ctx.accessToken, hide: String(hidden) },
     });
   }
 
   async deleteComment(ctx: AccountContext, externalId: string) {
-    await request(`${graph()}/${externalId}`, { method: 'DELETE', query: { access_token: ctx.accessToken } });
+    await request(`${igBase(ctx)}/${externalId}`, { method: 'DELETE', query: { access_token: ctx.accessToken } });
   }
 
-  fetchConversations(ctx: AccountContext) {
+  async fetchConversations(ctx: AccountContext) {
+    // Creator (Instagram Login) accounts have no Page; DMs are read from the IG account itself.
+    if (ctx.metadata.loginType === 'instagram') {
+      return fetchMetaConversations(ctx, 'instagram', ctx.externalId, ctx.externalId, igGraph()).catch(() => []);
+    }
     return fetchMetaConversations(ctx, 'instagram', ctx.metadata.pageId, ctx.externalId);
   }
 
   sendMessage(ctx: AccountContext, conv: { participantExternalId?: string | null }, text: string) {
+    if (ctx.metadata.loginType === 'instagram') {
+      return sendMetaMessage(ctx.externalId, ctx.accessToken, conv.participantExternalId, text, igGraph());
+    }
     return sendMetaMessage(ctx.metadata.pageId, ctx.accessToken, conv.participantExternalId, text);
   }
 
   async fetchAccountMetrics(ctx: AccountContext): Promise<AccountMetrics> {
-    const info = await request<{ followers_count?: number }>(`${graph()}/${ctx.externalId}`, {
+    const info = await request<{ followers_count?: number }>(`${igBase(ctx)}/${ctx.externalId}`, {
       query: { access_token: ctx.accessToken, fields: 'followers_count,media_count' },
     });
     const metrics: AccountMetrics = { followers: info.followers_count ?? 0 };
     const insights = await request<{ data: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] }>(
-      `${graph()}/${ctx.externalId}/insights`,
+      `${igBase(ctx)}/${ctx.externalId}/insights`,
       { query: { access_token: ctx.accessToken, metric: 'reach', period: 'day' } },
     ).catch(() => null);
     const reach = insights?.data?.find((d) => d.name === 'reach');
@@ -510,7 +625,7 @@ export class InstagramProvider implements SocialProvider {
   }
 
   async fetchPostMetrics(ctx: AccountContext, externalId: string): Promise<PostMetrics> {
-    const r = await request<{ like_count?: number; comments_count?: number }>(`${graph()}/${externalId}`, {
+    const r = await request<{ like_count?: number; comments_count?: number }>(`${igBase(ctx)}/${externalId}`, {
       query: { access_token: ctx.accessToken, fields: 'like_count,comments_count' },
     });
     return { likes: r.like_count ?? 0, comments: r.comments_count ?? 0 };
@@ -525,9 +640,10 @@ async function fetchMetaConversations(
   platform: 'messenger' | 'instagram',
   pageId: string,
   selfId: string,
+  base = graph(),
 ): Promise<RemoteConversation[]> {
   if (!pageId) return [];
-  const res = await request<{ data: any[] }>(`${graph()}/${pageId}/conversations`, {
+  const res = await request<{ data: any[] }>(`${base}/${pageId}/conversations`, {
     query: {
       access_token: ctx.accessToken,
       platform,
@@ -565,9 +681,9 @@ async function fetchMetaConversations(
   });
 }
 
-async function sendMetaMessage(pageId: string, token: string, recipientId: string | null | undefined, text: string) {
+async function sendMetaMessage(pageId: string, token: string, recipientId: string | null | undefined, text: string, base = graph()) {
   if (!recipientId) throw new ProviderError('Recipient is unknown for this conversation');
-  const res = await request<{ message_id: string }>(`${graph()}/${pageId}/messages`, {
+  const res = await request<{ message_id: string }>(`${base}/${pageId}/messages`, {
     method: 'POST',
     query: { access_token: token },
     json: { recipient: { id: recipientId }, messaging_type: 'RESPONSE', message: { text } },

@@ -18,7 +18,7 @@ export const MARKETING = {
     { value: '4.9 ★', label: 'on G2' },
   ],
   loginQuote: {
-    text: '"Postly is the only tool our whole social team actually agrees on. Scheduling, inbox, reporting — it just works."',
+    text: '"PostGuru is the only tool our whole social team actually agrees on. Scheduling, inbox, reporting — it just works."',
     name: 'Rohit Gautam',
     role: 'Founder · techSquad',
     initials: 'RG',
@@ -26,7 +26,7 @@ export const MARKETING = {
     tint: '#60A5FA',
   },
   signupQuote: {
-    text: `"Postly cut our weekly content workflow from 12 hours to under 3. It's the only tool our whole team actually wants to use."`,
+    text: `"PostGuru cut our weekly content workflow from 12 hours to under 3. It's the only tool our whole team actually wants to use."`,
     name: 'Homesh',
     role: 'Co-founder · techSquad',
     initials: 'HO',

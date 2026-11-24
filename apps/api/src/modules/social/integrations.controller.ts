@@ -30,6 +30,7 @@ export class IntegrationsController {
       key: p.key,
       name: p.displayName,
       configured: p.isConfigured(),
+      modes: p.modes?.() ?? null,
       capabilities: p.capabilities,
       callbackUrl: callbackUrl(p.key),
     }));
@@ -37,8 +38,13 @@ export class IntegrationsController {
 
   @MinRole('ADMIN')
   @Get(':provider/connect')
-  async connect(@CurrentUser() user: AuthUser, @Param('provider') key: string) {
+  async connect(@CurrentUser() user: AuthUser, @Param('provider') key: string, @Query('mode') modeRaw?: string) {
     const provider = this.registry.get(key);
+    const modes = provider.modes?.() ?? [];
+    const mode = modes.find((m) => m.key === modeRaw)?.key ?? null;
+    if (mode && !modes.find((m) => m.key === mode)?.configured) {
+      throw new BadRequestException(`${provider.displayName} ${mode} login is not configured on the server yet.`);
+    }
     if (!provider.isConfigured()) {
       throw new BadRequestException(`${provider.displayName} is not configured on the server. See README → Social platform setup.`);
     }
@@ -51,10 +57,11 @@ export class IntegrationsController {
         userId: user.id,
         provider: provider.key,
         codeVerifier: pkce?.verifier ?? null,
+        mode,
         expiresAt: new Date(Date.now() + STATE_TTL_MS),
       },
     });
-    return { url: provider.getAuthUrl({ state, redirectUri: callbackUrl(provider.key), codeChallenge: pkce?.challenge }) };
+    return { url: provider.getAuthUrl({ state, redirectUri: callbackUrl(provider.key), codeChallenge: pkce?.challenge, mode }) };
   }
 
   @Public()
@@ -85,6 +92,7 @@ export class IntegrationsController {
         code,
         redirectUri: callbackUrl(provider.key),
         codeVerifier: stored.codeVerifier,
+        mode: stored.mode,
       });
       const saved = await this.accounts.saveConnected(stored.workspaceId, connected);
       // Kick off an initial sync in the background; failures are non-fatal.

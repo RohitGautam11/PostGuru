@@ -14,6 +14,8 @@ require('./dist/load-env.js'); // loads apps/api/.env
 const { encrypt } = require('./dist/common/crypto.js');
 const { hotp } = require('./dist/common/totp.js');
 const { PrismaClient } = require('@prisma/client');
+const { createHmac } = require('crypto');
+const { splitThread, extractHashtags } = require('./dist/common/thread.js');
 const prisma = new PrismaClient();
 
 const BASE = process.env.E2E_BASE ?? 'http://localhost:3002';
@@ -80,7 +82,7 @@ try {
   // ─── Infrastructure ─────────────────────────────────────────────────────────
   begin('Infrastructure');
   expect('API health (via web proxy)', await A('GET', '/api/health'), 200);
-  for (const p of ['/login', '/signup', '/forgot-password']) {
+  for (const p of ['/login', '/signup', '/forgot-password', '/', '/privacy', '/terms', '/data-deletion', '/roadmap']) {
     const r = await fetch(BASE + p);
     check(`Public page ${p} renders`, r.status === 200, `HTTP ${r.status}`);
   }
@@ -272,9 +274,65 @@ try {
   const yt = expect('Save post with YouTube tags', await A('POST', '/api/posts', { content: 'yt draft', accountIds: [fb.id], action: 'draft', overrides: { YOUTUBE: { title: 'My video', tags: ['#marketing', 'growth', 'growth'] } } }), [200, 201]).body;
   check('YouTube tags are cleaned and de-duplicated', JSON.stringify(yt?.overrides?.YOUTUBE?.tags) === JSON.stringify(['marketing', 'growth']), yt?.overrides);
 
+  // ─── Go-live guide features ────────────────────────────────────────────────
+  begin('Go-live features');
+  const cfg = expect('Public config (legal pages / pricing)', await O('GET', '/api/public/config'), 200).body;
+  check('Four plans: Starter, Creator, Business, Agency', cfg?.plans?.map((p) => p.key).join() === 'FREE,CREATOR,PRO,BUSINESS', cfg?.plans);
+  check('Plans carry INR + USD prices', cfg?.plans?.find((p) => p.key === 'CREATOR')?.priceMonthlyInr === 599 && cfg.plans.find((p) => p.key === 'CREATOR').priceMonthly === 9, cfg?.plans);
+  const ws0 = expect('Workspace shows trial', await A('GET', '/api/workspace'), 200).body;
+  check('New workspace is on the 14-day Business trial (or beta)', ws0?.trial === true || ws0?.beta === true, ws0);
+  const igInt = (integ ?? []).find((i) => i.key === 'INSTAGRAM');
+  check('Instagram offers creator + business modes', JSON.stringify(igInt?.modes?.map((m) => m.key)) === '["creator","business"]', igInt);
+  check('X thread splitter: parts ≤ 280 and numbered', (() => { const p = splitThread('word '.repeat(150)); return p.length > 1 && p.every((x) => [...x].length <= 280) && p[0].endsWith(`1/${p.length}`); })(), splitThread('word '.repeat(150)));
+  check('Hashtag extraction for first comment', (() => { const r = extractHashtags('Hello world #one #two'); return r.body === 'Hello world' && r.hashtags === '#one #two'; })(), extractHashtags('Hello world #one #two'));
+  const longX = 'Long thread post. '.repeat(30);
+  expect('Long X post rejected without thread option', await A('POST', '/api/posts', { content: longX, accountIds: [xAcc.id], action: 'schedule', scheduledAt: future(60) }), 400);
+  const th = expect('Long X post accepted as a thread', await A('POST', '/api/posts', { content: longX, accountIds: [xAcc.id], action: 'draft', overrides: { X: { thread: true } } }), [200, 201]).body;
+  check('Thread option stored', th?.overrides?.X?.thread === true, th?.overrides);
+  const fc = expect('First-comment hashtags option saved', await A('POST', '/api/posts', { content: 'Hi #a', accountIds: [fb.id], action: 'draft', overrides: { FACEBOOK: { hashtagsInFirstComment: true, firstComment: 'Link in bio' } } }), [200, 201]).body;
+  check('First comment stored for Facebook', fc?.overrides?.FACEBOOK?.hashtagsInFirstComment === true && fc.overrides.FACEBOOK.firstComment === 'Link in bio', fc?.overrides);
+  const rp = await A('POST', '/api/growth/replies', { platform: 'INSTAGRAM', kind: 'comment', message: 'Love this! Do you ship to Pune?' });
+  check(st?.ai ? 'AI reply suggestions return 3 replies' : 'AI replies report "not configured" cleanly', st?.ai ? rp.status === 200 && rp.body?.replies?.length > 0 : rp.status === 503, rp);
+  const fbk = expect('Send feedback (idea)', await A('POST', '/api/feedback', { kind: 'IDEA', title: `E2E idea ${RUN}`, message: 'Please add Bluesky support' }), [200, 201]).body;
+  check('Ideas go on the public roadmap', fbk?.public === true, fbk);
+  expect('Feedback validates kind', await A('POST', '/api/feedback', { kind: 'SPAM', title: 'x', message: 'y' }), 400);
+  const road = expect('Public roadmap (no login)', await O('GET', '/api/roadmap'), 200).body;
+  check('Idea visible on roadmap', arr(road).some((i) => i.id === fbk?.id), road);
+  check('Roadmap hides submitter email', !JSON.stringify(road).includes(ownerEmail), 'email leaked');
+  const vote = expect('Toggle vote', await A('POST', `/api/roadmap/${fbk?.id}/vote`), 200).body;
+  check('Vote toggles off (submitter auto-voted)', vote?.voted === false, vote);
+  expect('Save beta tester details', await A('PUT', '/api/beta-tester', { gmail: 'tester@gmail.com', facebook: 'https://facebook.com/tester' }), 200);
+  expect('Read beta tester details', await A('GET', '/api/beta-tester'), 200);
+  const pres = expect('Inbox presence heartbeat', await A('POST', '/api/inbox/threads/cm_e2e/presence', { action: 'viewing' }), 200).body;
+  check('Presence returns other viewers list', Array.isArray(pres?.others), pres);
+  expect('Admin API blocked for non-admins', await A('GET', '/api/admin/overview'), 403);
+  expect('Billing details: invalid GSTIN rejected', await A('PUT', '/api/billing/details', { gstin: '12345' }), 400);
+  expect('Billing details saved', await A('PUT', '/api/billing/details', { legalName: 'E2E Pvt Ltd', gstin: '27AAPFU0939F1ZV', state: 'Maharashtra', country: 'IN' }), 200);
+  const bill = expect('Billing summary includes AI credits + providers', await A('GET', '/api/billing'), 200).body;
+  check('Billing exposes usage.aiCredits and providers', typeof bill?.usage?.aiCredits === 'number' && typeof bill?.providers?.razorpay === 'boolean', bill);
+  expect('Razorpay webhook without valid signature rejected', await O('POST', '/api/billing/razorpay/webhook', { event: 'subscription.charged', payload: {} }, { 'x-razorpay-signature': 'bad' }), [400, 503]);
+  const del = expect('Data deletion request form', await O('POST', '/api/compliance/data-deletion', { email: `e2e-del-${RUN}@example.test` }), 200).body;
+  expect('Data deletion status lookup', await O('GET', `/api/compliance/data-deletion/status?code=${del?.confirmationCode}`), 200);
+  expect('Meta deletion callback rejects forged signature', await O('POST', '/api/compliance/meta/data-deletion', { signed_request: 'abc.eyJ1c2VyX2lkIjoiMSJ9' }), 400);
+  if (process.env.META_APP_SECRET) {
+    const metaUser = `e2e-meta-${RUN}`;
+    await prisma.socialAccount.create({
+      data: { workspaceId: ownerWorkspaceId, provider: 'INSTAGRAM', externalId: metaUser, name: 'E2E IG', accessToken: encrypt('x'), scopes: [], metadata: { loginType: 'instagram' } },
+    });
+    const payload = Buffer.from(JSON.stringify({ algorithm: 'HMAC-SHA256', issued_at: Math.floor(Date.now() / 1000), user_id: metaUser })).toString('base64url');
+    const sig = createHmac('sha256', process.env.META_APP_SECRET).update(payload).digest('base64url');
+    const dd = expect('Meta data-deletion callback (signed)', await O('POST', '/api/compliance/meta/data-deletion', { signed_request: `${sig}.${payload}` }), 200).body;
+    check('Returns confirmation code + status URL', /^del_/.test(dd?.confirmation_code ?? '') && String(dd?.url).includes(dd.confirmation_code), dd);
+    check('Connected account deleted', (await prisma.socialAccount.count({ where: { externalId: metaUser } })) === 0, 'still there');
+  }
+  await A('DELETE', `/api/posts/${th?.id}`);
+  await A('DELETE', `/api/posts/${fc?.id}`);
+
   begin('Team & permissions');
   expect('Workspace info', await A('GET', '/api/workspace'), 200);
   expect('Rename workspace', await A('PATCH', '/api/workspace', { name: 'E2E Agency Renamed' }), 200);
+  // New workspaces get a 14-day Business trial; age this one past it to test the Free Starter limit.
+  await prisma.workspace.update({ where: { id: ownerWorkspaceId }, data: { createdAt: new Date(Date.now() - 30 * 86400_000) } });
   expect('Free plan blocks extra members (upsell)', await A('POST', '/api/workspace/invitations', { email: `e2e-x-${RUN}@example.test`, role: 'EDITOR' }), 403);
   await prisma.workspace.update({ where: { id: ownerWorkspaceId }, data: { plan: 'PRO' } }); // simulate a paid upgrade
   const inv = expect('Invite member by email (Pro)', await A('POST', '/api/workspace/invitations', { email: `e2e-invitee-${RUN}@example.test`, role: 'EDITOR' }), [200, 201]).body;
@@ -349,6 +407,10 @@ try {
   const ids = users.map((u) => u.id);
   const wss = await prisma.membership.findMany({ where: { userId: { in: ids }, role: 'OWNER' }, select: { workspaceId: true } });
   await prisma.workspace.deleteMany({ where: { id: { in: wss.map((w) => w.workspaceId) } } }).catch((e) => console.log('cleanup ws:', e.message));
+  await prisma.feedback.deleteMany({ where: { userId: { in: ids } } }).catch((e) => console.log('cleanup feedback:', e.message));
+  await prisma.betaTester.deleteMany({ where: { userId: { in: ids } } }).catch((e) => console.log('cleanup testers:', e.message));
+  await prisma.threadPresence.deleteMany({ where: { userId: { in: ids } } }).catch(() => undefined);
+  await prisma.dataDeletionRequest.deleteMany({ where: { OR: [{ email: { startsWith: 'e2e-del-' } }, { externalUserId: { startsWith: 'e2e-meta-' } }] } }).catch(() => undefined);
   await prisma.user.deleteMany({ where: { id: { in: ids } } }).catch((e) => console.log('cleanup users:', e.message));
   await prisma.$disconnect();
 

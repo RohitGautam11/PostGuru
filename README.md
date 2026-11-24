@@ -1,8 +1,8 @@
-# Postly (SocialHub) — Social Media Management Platform
+# PostGuru — Social Media Management Platform
 
-> The UI implements the **Postly** Figma design (High-Fidelity Dashboard Design). The repository/folder is still called `SocialHub`; the product name shown in the UI comes from `NEXT_PUBLIC_APP_NAME` (default `Postly`).
+> The UI implements the **PostGuru** Figma design (High-Fidelity Dashboard Design). The product name shown in the UI comes from `NEXT_PUBLIC_APP_NAME` (default `PostGuru`).
 
-Manage every social account from one place. Users connect their **Facebook Pages, Instagram Business, X (Twitter), LinkedIn and YouTube** accounts once. From SocialHub they can then:
+Manage every social account from one place. Users connect their **Facebook Pages, Instagram Business, X (Twitter), LinkedIn and YouTube** accounts once. From PostGuru they can then:
 
 - **Create, edit and publish** posts to many accounts at once, with per-platform text, a YouTube title, images, carousels and video
 - **Schedule** posts on a drag-and-drop **calendar**, with automatic publishing, retries and failure alerts
@@ -12,7 +12,7 @@ Manage every social account from one place. Users connect their **Facebook Pages
 - Run a **SaaS business**: workspaces, team roles, invitations and **Stripe subscriptions** with plan limits
 
 ```
-SocialHub/
+PostGuru/
 ├── apps/
 │   ├── api/   NestJS 10 + Prisma + PostgreSQL   → Vercel project #1 (serverless) or Docker
 │   └── web/   Next.js 14 (App Router) + Tailwind  → Vercel project #2
@@ -62,7 +62,7 @@ SocialHub/
 **Prerequisites:** Node.js 20+ and a PostgreSQL 14+ database created with **UTF-8** encoding. No Docker? Run `npm --prefix apps/api run db:start` — it starts a project-local PostgreSQL (data in `apps/api/.local-db`) on port 5432; keep that terminal open.
 
 ```bash
-cd SocialHub
+cd PostGuru
 docker compose up -d                 # PostgreSQL on localhost:5432 (or: npm --prefix apps/api run db:start)
 npm run install:all
 
@@ -125,7 +125,7 @@ You create **two Vercel projects from the same Git repository**.
 | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_ORGANIZATIONS` | 〃 |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | 〃 |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | any SMTP provider (Resend, SendGrid, Postmark, SES…). Used for password-reset links, email notifications and the weekly report. |
-| `APP_NAME` | `Postly` — product name used in emails and in the authenticator-app label |
+| `APP_NAME` | `PostGuru` — product name used in emails and in the authenticator-app label |
 
 A platform whose credentials are missing shows as **Not configured** in the UI. Everything else keeps working.
 
@@ -140,7 +140,7 @@ Without `SMTP_HOST`, emails are not sent. The API logs each message instead (inc
 |---|---|
 | `API_URL` | `https://<api-project>.vercel.app` (it is read at **build time** for the proxy, so redeploy after changing it) |
 | `NEXT_PUBLIC_APP_URL` | `https://your-domain.com` |
-| `NEXT_PUBLIC_APP_NAME` | `Postly` (or your brand) |
+| `NEXT_PUBLIC_APP_NAME` | `PostGuru` (or your brand) |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | optional — shown in Help & Support |
 | `NEXT_PUBLIC_TERMS_URL`, `NEXT_PUBLIC_PRIVACY_URL` | optional — linked from the sign-up form |
 

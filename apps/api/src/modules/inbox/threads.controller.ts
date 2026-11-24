@@ -14,9 +14,10 @@ import {
 } from '@nestjs/common';
 import { Comment, Conversation, Provider, SocialAccount } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { AuthUser, CurrentUser, MinRole, ROLE_RANK } from '../../common/decorators';
 import { PrismaService } from '../../prisma/prisma.service';
+import { limitsFor } from '../../common/plans';
 import { AccountsService } from '../social/accounts.service';
 import { classifySentiment } from '../social/sentiment';
 
@@ -36,6 +37,13 @@ class NoteDto {
 class MuteDto {
   @IsBoolean() muted: boolean;
 }
+
+class PresenceDto {
+  @IsIn(['viewing', 'replying', 'left']) action: 'viewing' | 'replying' | 'left';
+}
+
+/** A teammate counts as present if their heartbeat is newer than this. */
+const PRESENCE_TTL_MS = 45_000;
 
 class UpdateThreadDto {
   @IsOptional() @IsBoolean() resolved?: boolean;
@@ -264,11 +272,48 @@ export class ThreadsController {
     };
   }
 
+  /**
+   * Collision detection: the inbox sends a heartbeat every ~20s while a thread is open (and
+   * "replying" while typing). Returns the other teammates currently on the same thread.
+   */
+  @HttpCode(200)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @Post(':id/presence')
+  async presence(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: PresenceDto) {
+    if (dto.action === 'left') {
+      await this.prisma.threadPresence.deleteMany({ where: { threadId: id, userId: user.id } });
+    } else {
+      await this.prisma.threadPresence.upsert({
+        where: { threadId_userId: { threadId: id, userId: user.id } },
+        create: { threadId: id, userId: user.id, workspaceId: user.workspaceId, userName: user.name, action: dto.action },
+        update: { action: dto.action, userName: user.name },
+      });
+    }
+    const others = await this.prisma.threadPresence.findMany({
+      where: {
+        workspaceId: user.workspaceId,
+        threadId: id,
+        userId: { not: user.id },
+        updatedAt: { gt: new Date(Date.now() - PRESENCE_TTL_MS) },
+      },
+      select: { userId: true, userName: true, action: true, updatedAt: true },
+    });
+    return { others };
+  }
+
   @MinRole('EDITOR')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post(':id/reply')
   async reply(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReplyDto) {
     const [kind, recordId] = this.parseId(id);
+    const ws = await this.prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId } });
+    const inbox = limitsFor(ws);
+    if (inbox.inbox === 'view') {
+      throw new ForbiddenException(`The ${inbox.name} plan includes a read-only inbox. Upgrade to Creator to reply to comments.`);
+    }
+    if (kind === 'dm' && inbox.inbox !== 'full') {
+      throw new ForbiddenException(`Replying to direct messages needs the Business plan. Your ${inbox.name} plan covers comments and replies.`);
+    }
 
     if (kind === 'dm') {
       const conv = await this.prisma.conversation.findFirst({

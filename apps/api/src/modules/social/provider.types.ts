@@ -59,6 +59,10 @@ export interface PublishInput {
   title?: string | null;
   /** SEO keywords/tags (YouTube video tags). */
   tags?: string[] | null;
+  /** X: publish as a reply chain (each item ≤ 280 chars). */
+  thread?: string[] | null;
+  /** Instagram / Facebook: posted as the first comment right after publishing (e.g. hashtags). */
+  firstComment?: string | null;
 }
 
 export interface PublishResult {
@@ -126,14 +130,16 @@ export interface SocialProvider {
   isConfigured(): boolean;
   readonly usesPkce: boolean;
 
-  getAuthUrl(params: { state: string; redirectUri: string; codeChallenge?: string }): string;
-  handleCallback(params: { code: string; redirectUri: string; codeVerifier?: string | null }): Promise<ConnectedAccount[]>;
+  /** Connection flavours this provider offers (e.g. Instagram: creator / business). */
+  modes?(): { key: string; configured: boolean }[];
+  getAuthUrl(params: { state: string; redirectUri: string; codeChallenge?: string; mode?: string | null }): string;
+  handleCallback(params: { code: string; redirectUri: string; codeVerifier?: string | null; mode?: string | null }): Promise<ConnectedAccount[]>;
   refreshTokens?(refreshToken: string): Promise<OAuthTokens>;
 
   publish(ctx: AccountContext, input: PublishInput): Promise<PublishResult>;
   deletePost?(ctx: AccountContext, externalId: string): Promise<void>;
 
-  /** `knownPostIds` = posts published via SocialHub, for platforms that cannot list an account's posts. */
+  /** `knownPostIds` = posts published via PostGuru, for platforms that cannot list an account's posts. */
   fetchComments?(ctx: AccountContext, knownPostIds: string[]): Promise<RemoteComment[]>;
   replyToComment?(ctx: AccountContext, comment: { externalId: string; externalPostId: string }, text: string): Promise<{ externalId: string }>;
   hideComment?(ctx: AccountContext, externalId: string, hidden: boolean): Promise<void>;

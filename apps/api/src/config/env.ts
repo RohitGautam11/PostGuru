@@ -27,13 +27,38 @@ const schema = z.object({
 
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_CREATOR: z.string().optional(),
   STRIPE_PRICE_PRO: z.string().optional(),
   STRIPE_PRICE_BUSINESS: z.string().optional(),
+
+  /** Razorpay (domestic INR subscriptions: UPI AutoPay, e-mandates, Indian cards). */
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RAZORPAY_PLAN_CREATOR: z.string().optional(),
+  RAZORPAY_PLAN_PRO: z.string().optional(),
+  RAZORPAY_PLAN_BUSINESS: z.string().optional(),
+
+  /** Staging: give every workspace the top plan so beta testers are never blocked by limits. */
+  BETA_ALL_ACCESS: bool,
+  /** Comma-separated emails that can open the admin console (feedback, beta testers, deletion requests). */
+  ADMIN_EMAILS: z.string().default(''),
+
+  /** Supplier details printed on GST invoices and the legal pages. Keep identical to your GST REG-06. */
+  COMPANY_LEGAL_NAME: z.string().default('PostGuru'),
+  COMPANY_ADDRESS: z.string().default(''),
+  COMPANY_STATE: z.string().default(''),
+  COMPANY_GSTIN: z.string().optional(),
+  COMPANY_SAC_CODE: z.string().default('998315'),
+  SUPPORT_EMAIL: z.string().optional(),
 
   META_APP_ID: z.string().optional(),
   META_APP_SECRET: z.string().optional(),
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
   META_GRAPH_VERSION: z.string().default('v21.0'),
+  /** Instagram API with Instagram Login (creators, no Facebook Page). Meta app → Instagram → API setup with Instagram login. */
+  INSTAGRAM_APP_ID: z.string().optional(),
+  INSTAGRAM_APP_SECRET: z.string().optional(),
 
   X_CLIENT_ID: z.string().optional(),
   X_CLIENT_SECRET: z.string().optional(),
@@ -60,7 +85,7 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('claude-opus-5-5'),
 
-  APP_NAME: z.string().default('Postly'),
+  APP_NAME: z.string().default('PostGuru'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_SECURE: bool,

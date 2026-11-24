@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PROTECTED = ['/dashboard', '/composer', '/planner', '/posts', '/inbox', '/analytics', '/growth', '/guide', '/connect', '/settings'];
+const PROTECTED = ['/dashboard', '/composer', '/planner', '/posts', '/inbox', '/analytics', '/growth', '/guide', '/connect', '/settings', '/beta', '/admin'];
 const AUTH_PAGES = ['/login', '/signup'];
 
 /**

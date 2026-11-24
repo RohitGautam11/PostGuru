@@ -1,4 +1,4 @@
-/** Design tokens taken from the Figma (Postly) design. */
+/** Design tokens taken from the Figma (PostGuru) design. */
 export const C = {
   page: '#F4F6F8',
   shell: '#F4F6F9',

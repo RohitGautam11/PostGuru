@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ReportsService } from '../notifications/reports.service';
 import { PublisherService } from '../posts/publisher.service';
 import { SyncService } from '../social/sync.service';
+import { AccountsService } from '../social/accounts.service';
 
 const SYNC_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -20,6 +21,7 @@ export class CronJobs {
     private readonly publisher: PublisherService,
     private readonly sync: SyncService,
     readonly reports: ReportsService,
+    readonly accounts: AccountsService,
   ) {}
 
   publishDue() {
@@ -48,6 +50,7 @@ export class CronJobs {
 
   async cleanup() {
     const now = new Date();
+    await this.prisma.threadPresence.deleteMany({ where: { updatedAt: { lt: new Date(now.getTime() - 86400_000) } } });
     const [states, tokens, notes] = await Promise.all([
       this.prisma.oAuthState.deleteMany({ where: { expiresAt: { lt: now } } }),
       this.prisma.refreshToken.deleteMany({
@@ -88,7 +91,14 @@ export class CronJobs {
 
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async tickTokenExpiry() {
-    if (env().ENABLE_INTERNAL_SCHEDULER) await this.reports.warnExpiringTokens();
+    if (!env().ENABLE_INTERNAL_SCHEDULER) return;
+    await this.accounts.refreshExpiringTokens();
+    await this.reports.warnExpiringTokens();
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async tickTokenRefresh() {
+    if (env().ENABLE_INTERNAL_SCHEDULER) await this.accounts.refreshExpiringTokens();
   }
 
   /** Mondays at 09:00 server time. */
@@ -139,11 +149,20 @@ export class CronController {
     return this.jobs.cleanup();
   }
 
-  /** Daily: warns about social tokens that expire within 7 days. */
+  /** Daily: refreshes long-lived tokens, then warns about social tokens that still expire within 7 days. */
   @Get('token-expiry')
-  tokenExpiryGet(@Headers('authorization') auth?: string) {
+  async tokenExpiryGet(@Headers('authorization') auth?: string) {
     this.authorize(auth);
-    return this.jobs.reports.warnExpiringTokens();
+    const refresh = await this.jobs.accounts.refreshExpiringTokens();
+    const warnings = await this.jobs.reports.warnExpiringTokens();
+    return { refresh, warnings };
+  }
+
+  /** Refreshes OAuth tokens that are about to expire (Meta/Instagram/Threads at day 50, others within the hour). */
+  @Get('refresh-tokens')
+  refreshTokensGet(@Headers('authorization') auth?: string) {
+    this.authorize(auth);
+    return this.jobs.accounts.refreshExpiringTokens();
   }
 
   /** Weekly (Mondays): emails each member who opted in an analytics summary of the last 7 days. */

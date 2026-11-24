@@ -42,7 +42,7 @@ export function GettingStarted({ dismissible = false }: { dismissible?: boolean 
           <Rocket size={17} color={C.violet} />
         </div>
         <div className="flex-1">
-          <p style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Get started with Postly</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>Get started with PostGuru</p>
           <p style={{ fontSize: 12, color: C.faint }}>{done} of {steps.length} done · about 10 minutes</p>
           <div className="mt-2 h-1.5 rounded-full" style={{ background: '#F1F5F9' }}>
             <div className="h-1.5 rounded-full" style={{ width: `${(done / steps.length) * 100}%`, background: C.violet }} />

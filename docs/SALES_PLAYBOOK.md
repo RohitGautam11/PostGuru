@@ -1,12 +1,12 @@
-# Postly — Sales Playbook
+# PostGuru — Sales Playbook
 
-How to present Postly to a prospect: what each feature does, how to show it in the demo, and what to say.
+How to present PostGuru to a prospect: what each feature does, how to show it in the demo, and what to say.
 
 ---
 
 ## 1. The pitch in one breath
 
-> **Postly lets a business or agency run all of its social media from one screen.** Connect Facebook, Instagram, X, LinkedIn and YouTube once. Then write and schedule posts for every channel, answer every message and comment, and see what works, without logging in and out of five apps.
+> **PostGuru lets a business or agency run all of its social media from one screen.** Connect Facebook, Instagram, X, LinkedIn and YouTube once. Then write and schedule posts for every channel, answer every message and comment, and see what works, without logging in and out of five apps.
 
 **Who buys it**
 
@@ -30,8 +30,8 @@ Use a prepared demo workspace with real connected accounts and some past posts (
 | Min | Screen | What you do | What you say |
 |---|---|---|---|
 | 0–2 | **Dashboard** | Open `/dashboard` | "This is your morning view: followers, engagement, what's scheduled today and anything that needs attention." |
-| 2–5 | **Composer** | Write one post, tick Facebook + Instagram + X + LinkedIn, add an image, open the X tab and shorten the text | "One post, four networks. Postly checks each network's rules for you: X allows 280 characters, Instagram needs an image. You can tailor the text for each network." |
-| 5–6 | **Growth Assistant** | Paste a weak draft (score ~55). Fix the hook, add a question, click 3 hashtag suggestions, try AI → "Make it viral" | "Watch the score go from 55 to 85. Postly coaches every post for each platform before it goes out. That is how our users grow faster." |
+| 2–5 | **Composer** | Write one post, tick Facebook + Instagram + X + LinkedIn, add an image, open the X tab and shorten the text | "One post, four networks. PostGuru checks each network's rules for you: X allows 280 characters, Instagram needs an image. You can tailor the text for each network." |
+| 5–6 | **Growth Assistant** | Paste a weak draft (score ~55). Fix the hook, add a question, click 3 hashtag suggestions, try AI → "Make it viral" | "Watch the score go from 55 to 85. PostGuru coaches every post for each platform before it goes out. That is how our users grow faster." |
 | 6–7 | **Schedule → Planner** | Click *Schedule*, pick tomorrow 10:00, open the Planner, drag the post to another day | "Plan your whole month in a calendar. Change your mind? Drag and drop." |
 | 7–10 | **Inbox** | Show the unified list, filter by Comments, reply to one, add an internal note, assign it to a teammate, resolve it | "Every Messenger, Instagram and X message and every comment, in one place. Your team can split the work and nothing slips through." |
 | 10–12 | **Analytics** | Switch 7 / 30 / 90 days, point to the top posts and the best-time heatmap, export a PDF | "This shows what actually works and when your audience is online. One click gives you a client-ready report." |
@@ -46,15 +46,15 @@ For each feature below: what it is, where it is, how to demo it, and the custome
 
 ### 3.1 Connect accounts
 - **Where:** sidebar → *Connect Account* (`/connect`)
-- **What:** one-click secure login to Facebook Pages, Instagram Business, X, LinkedIn (profile + company pages) and YouTube. Postly never sees the customer's passwords.
+- **What:** one-click secure login to Facebook Pages, Instagram Business, X, LinkedIn (profile + company pages) and YouTube. PostGuru never sees the customer's passwords.
 - **Demo:** show the connected cards with follower counts. Don't connect live, because a slow login screen kills momentum.
-- **Say:** "Connect once. Postly keeps you logged in and warns you before anything expires."
+- **Say:** "Connect once. PostGuru keeps you logged in and warns you before anything expires."
 - **Know:** Instagram must be a **Business or Creator** account linked to a Facebook Page. If a platform shows *Reconnect needed*, the customer changed their password or removed access, and one click fixes it.
 
 ### 3.1b Growth Assistant & Growth Hub (lead with this)
 - **Where:** right side of the Composer (Score · Hashtags · AI Writer) and sidebar → Growth Hub.
 - **What:** a 0–100 Growth Score per platform with exact fixes; one-click hashtags (your top performers, niche, long-tail); AI captions, "make it viral", hooks, YouTube SEO and content ideas; a personal growth plan, best formats, best times and video/image specs for all 8 platforms.
-- **Say:** "Other tools publish. Postly helps every post perform."
+- **Say:** "Other tools publish. PostGuru helps every post perform."
 - **Details:** see [SALES_HOW_IT_WORKS.md](SALES_HOW_IT_WORKS.md) §2.4 and §2.9.
 
 ### 3.2 Composer (create and publish)
@@ -79,8 +79,8 @@ For each feature below: what it is, where it is, how to demo it, and the custome
 - **Where:** *Planner* (`/planner`), with week view and list view
 - **What:** every scheduled, published and failed post on a calendar. Drag to reschedule; search everything.
 - **Demo:** drag a post to a new day, then switch to list view and search.
-- **Say:** "Plan a month of content in one afternoon. Postly publishes it automatically, even when your laptop is closed."
-- **Know:** if a post fails (for example, a revoked token), Postly retries automatically, marks the post *Failed* with the reason, and sends a notification. Nothing fails silently.
+- **Say:** "Plan a month of content in one afternoon. PostGuru publishes it automatically, even when your laptop is closed."
+- **Know:** if a post fails (for example, a revoked token), PostGuru retries automatically, marks the post *Failed* with the reason, and sends a notification. Nothing fails silently.
 
 ### 3.4 Post details
 - **Where:** click any post (`/posts/:id`)
@@ -161,19 +161,19 @@ Upgrades are self-serve in *Settings → Billing*. Customers can change plans or
 
 | They say | You say |
 |---|---|
-| "We already use Meta Business Suite." | "That covers only Facebook and Instagram. Postly adds X, LinkedIn and YouTube in the same calendar and inbox." |
+| "We already use Meta Business Suite." | "That covers only Facebook and Instagram. PostGuru adds X, LinkedIn and YouTube in the same calendar and inbox." |
 | "Is it safe to connect our accounts?" | "We use each network's official login. We never see your password, tokens are encrypted, and you can disconnect anytime." |
-| "What if a post fails?" | "Postly retries automatically, tells you why, and lets you retry in one click." |
+| "What if a post fails?" | "PostGuru retries automatically, tells you why, and lets you retry in one click." |
 | "Can my client see results without editing?" | "Yes. Invite them as a Viewer, or send the PDF report." |
 | "Which platforms do you support?" | "Facebook, Instagram, X, LinkedIn, YouTube, Threads, TikTok and Pinterest, all from one screen. Need another one? Tell me and I'll pass it to the product team." |
-| "Will it make my posts go viral?" | "No tool can promise that. Postly's Growth Score checks every post against each platform's best practices and your own results, so your odds go up on every post." |
+| "Will it make my posts go viral?" | "No tool can promise that. PostGuru's Growth Score checks every post against each platform's best practices and your own results, so your odds go up on every post." |
 | "Can I reply to LinkedIn messages?" | "LinkedIn doesn't offer messaging to third-party tools, so no tool can do this. LinkedIn comments are supported." |
 
 ---
 
 ## 6. Do NOT promise
 
-These are platform limits, not Postly bugs, but promising them will lose trust.
+These are platform limits, not PostGuru bugs, but promising them will lose trust.
 
 - ❌ **Post-approval workflow** (an "approve before publishing" step). It doesn't exist yet. Roles control who can publish.
 - ❌ **Google Business Profile, Snapchat, WhatsApp, Telegram, Reddit.** Not supported yet.

@@ -9,7 +9,7 @@ import { normalizeRecoveryCode, verifyTotp } from '../../common/totp';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from '../../common/guards';
-import { PLAN_LIMITS } from '../../common/plans';
+import { atLimit, limitsFor } from '../../common/plans';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto, RegisterDto } from './auth.dto';
 
@@ -368,7 +368,7 @@ export class AuthService {
       const ws = await this.prisma.workspace.findUnique({ where: { inviteLinkHash: sha256(token) } });
       if (!ws) throw new BadRequestException('This invite link is no longer active. Ask an admin for a new one.');
       const members = await this.prisma.membership.count({ where: { workspaceId: ws.id } });
-      if (members >= PLAN_LIMITS[ws.plan].members) {
+      if (atLimit(members, limitsFor(ws).members)) {
         throw new ForbiddenException('This workspace has reached its member limit. Ask an admin to upgrade the plan.');
       }
       return { workspaceId: ws.id, role: ws.inviteLinkRole, email: null, invitationId: null };

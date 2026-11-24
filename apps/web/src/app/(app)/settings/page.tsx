@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ApiAccess } from '@/components/settings/api-keys';
+import { BillingTab } from '@/components/settings/billing-tab';
 import { InviteByLink } from '@/components/settings/invite-link';
 import { TwoFactorRow } from '@/components/settings/two-factor';
 import { Btn, Card, ConfirmDialog, FieldLabel, GradientAvatar, Modal, PageLoader, SelectMenu, TextInput, Toggle } from '@/components/ui';
@@ -596,7 +597,7 @@ function NotificationsTab() {
           </p>
         )}
         <p style={{ fontSize: 12.5, color: C.faint, lineHeight: 1.55 }}>
-          Push notifications appear in the bell menu{desktop === 'granted' ? ' and as desktop alerts while Postly is open.' : '.'}{' '}
+          Push notifications appear in the bell menu{desktop === 'granted' ? ' and as desktop alerts while PostGuru is open.' : '.'}{' '}
           {desktop === 'default' && (
             <button onClick={enableDesktop} style={{ color: C.blue, fontWeight: 600 }} className="transition-opacity hover:opacity-70">
               Also show desktop alerts
@@ -604,174 +605,6 @@ function NotificationsTab() {
           )}
           {desktop === 'denied' && <span>Desktop alerts are blocked in your browser settings.</span>}
         </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Billing ────────────────────────────────────────────────────────────────
-interface BillingSummary {
-  plan: Plan;
-  status: string | null;
-  currentPeriodEnd: string | null;
-  hasCustomer: boolean;
-  billingEnabled: boolean;
-  limits: { accounts: number; members: number; scheduledPostsPerMonth: number; priceMonthly: number; name: string };
-  usage: { accounts: number; members: number; postsThisMonth: number };
-  plans: { key: Plan; name: string; priceMonthly: number; features: string[] }[];
-}
-interface BillingDetails {
-  paymentMethod: { brand: string; last4: string; expMonth: number; expYear: number } | null;
-  invoices: { id: string; date: string; amount: number; currency: string; status: string | null; pdf: string | null; url: string | null }[];
-}
-
-function BillingTab() {
-  const params = useSearchParams();
-  const qc = useQueryClient();
-  const isOwner = useCan('OWNER');
-  const { data } = useQuery({ queryKey: ['billing'], queryFn: () => api<BillingSummary>('/billing') });
-  const { data: details } = useQuery({ queryKey: ['billing', 'details'], queryFn: () => api<BillingDetails>('/billing/details'), enabled: !!data?.hasCustomer });
-
-  useEffect(() => {
-    const c = params.get('checkout');
-    if (c === 'success') {
-      toast.success('Subscription updated. Thank you!');
-      qc.invalidateQueries({ queryKey: ['me'] });
-      qc.invalidateQueries({ queryKey: ['billing'] });
-    }
-    if (c === 'cancelled') toast.message('Checkout cancelled');
-  }, [params, qc]);
-
-  const go = useMutation({
-    mutationFn: ({ path, plan }: { path: string; plan?: Plan }) => api<{ url: string }>(path, { method: 'POST', body: plan ? { plan } : undefined }),
-    onSuccess: (r) => (window.location.href = r.url),
-    onError: (e) => toast.error(errorMessage(e)),
-  });
-
-  if (!data) return <PageLoader />;
-  const current = data.plans.find((p) => p.key === data.plan)!;
-  const active = !data.status || ['active', 'trialing'].includes(data.status);
-  const money = (cents: number, cur: string) => new Intl.NumberFormat(undefined, { style: 'currency', currency: cur.toUpperCase() }).format(cents / 100);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-2xl p-6 sm:p-7" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', boxShadow: CARD_SHADOW }}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Current Plan</span>
-            <h3 style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', marginTop: 8 }}>{current.name} Workspace</h3>
-            <p style={{ fontSize: 13, color: C.faint, marginTop: 6 }}>
-              {current.priceMonthly ? `$${current.priceMonthly}/mo · Billed monthly` : 'Free forever'}
-              {data.currentPeriodEnd && ` · ${data.status === 'canceled' ? 'Ends' : 'Renews'} ${format(new Date(data.currentPeriodEnd), 'MMM d, yyyy')}`}
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ fontSize: 12, fontWeight: 700, color: active ? '#34D399' : '#FBBF24', background: active ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)' }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? '#34D399' : '#FBBF24' }} /> {data.status ? data.status.replace('_', ' ').replace(/^\w/, (c) => c.toUpperCase()) : 'Active'}
-          </span>
-        </div>
-        <div className="mt-7 grid grid-cols-1 gap-4 pt-6 sm:grid-cols-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          {[
-            [`${data.usage.members} / ${data.limits.members}`, 'Team members'],
-            [`${data.usage.accounts} / ${data.limits.accounts}`, 'Connected accounts'],
-            [data.limits.scheduledPostsPerMonth < 0 ? 'Unlimited' : `${data.usage.postsThisMonth} / ${data.limits.scheduledPostsPerMonth}`, 'Scheduled posts this month'],
-          ].map(([v, l]) => (
-            <div key={l}>
-              <p style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{v}</p>
-              <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{l}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {data.plans.map((p) => {
-          const isCurrent = p.key === data.plan;
-          return (
-            <div key={p.key} className="flex flex-col rounded-2xl bg-white p-6" style={{ border: isCurrent ? `1.5px solid ${C.blueBorder}` : BORDER, boxShadow: CARD_SHADOW }}>
-              <div className="flex items-center justify-between">
-                <p style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{p.name}</p>
-                {isCurrent && <span style={{ fontSize: 10, fontWeight: 700, color: C.blue, background: C.blueSoft, padding: '2px 8px', borderRadius: 999 }}>Current</span>}
-              </div>
-              <p className="mt-2">
-                <span style={{ fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: '-0.03em' }}>${p.priceMonthly}</span>
-                <span style={{ fontSize: 13, color: C.faint }}> / month</span>
-              </p>
-              <ul className="mt-4 flex flex-1 flex-col gap-2">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2" style={{ fontSize: 13, color: C.body }}>
-                    <Check size={14} className="mt-0.5 flex-shrink-0" color={C.green} /> {f}
-                  </li>
-                ))}
-              </ul>
-              {!isCurrent && p.key !== 'FREE' && (
-                <button
-                  disabled={!isOwner || !data.billingEnabled || go.isPending}
-                  onClick={() => go.mutate(data.plan !== 'FREE' && data.hasCustomer ? { path: '/billing/portal' } : { path: '/billing/checkout', plan: p.key })}
-                  className="mt-5 w-full rounded-xl py-2.5 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: C.blue }}
-                >
-                  {data.plan === 'FREE' ? `Upgrade to ${p.name}` : `Switch to ${p.name}`}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {(!data.billingEnabled || !isOwner) && (
-        <p style={{ fontSize: 12, color: C.faint }}>{!data.billingEnabled ? 'Billing is not configured on this server yet (Stripe keys missing).' : 'Only workspace owners can change the plan.'}</p>
-      )}
-
-      <div className="rounded-2xl bg-white p-6 sm:p-7" style={{ border: BORDER }}>
-        <h3 style={{ ...h3, marginBottom: 20 }}>Payment method</h3>
-        <div className="flex flex-wrap items-center gap-4 rounded-xl p-5" style={{ border: BORDER, background: '#FAFBFD' }}>
-          <div className="flex items-center justify-center rounded-lg" style={{ width: 44, height: 30, background: '#1a1f5e' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff' }}>{details?.paymentMethod ? details.paymentMethod.brand.toUpperCase().slice(0, 4) : 'CARD'}</span>
-          </div>
-          <div className="flex-1">
-            <p style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>
-              {details?.paymentMethod ? `${details.paymentMethod.brand.charAt(0).toUpperCase() + details.paymentMethod.brand.slice(1)} ending in ${details.paymentMethod.last4}` : 'No card on file'}
-            </p>
-            <p style={{ fontSize: 13, color: C.faint, marginTop: 2 }}>
-              {details?.paymentMethod ? `Expires ${String(details.paymentMethod.expMonth).padStart(2, '0')}/${String(details.paymentMethod.expYear).slice(-2)}` : 'Added when you upgrade'}
-            </p>
-          </div>
-          {data.hasCustomer && isOwner && (
-            <button onClick={() => go.mutate({ path: '/billing/portal' })} style={{ fontSize: 13, fontWeight: 600, color: C.blue }} className="transition-opacity hover:opacity-70">
-              Update
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-white p-6 sm:p-7" style={{ border: BORDER }}>
-        <h3 style={{ ...h3, marginBottom: 16 }}>Billing history</h3>
-        {!details?.invoices.length ? (
-          <p style={{ fontSize: 13, color: C.ghost }}>No invoices yet.</p>
-        ) : (
-          details.invoices.map((inv, i) => (
-            <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 py-4" style={{ borderBottom: i < details.invoices.length - 1 ? `1px solid ${C.line}` : 'none' }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>
-                  {current.name} Workspace · {format(new Date(inv.date), 'MMM d, yyyy')}
-                </p>
-                <p style={{ fontSize: 13, color: C.faint, marginTop: 2 }}>{money(inv.amount, inv.currency)}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1"
-                  style={{ fontSize: 11, fontWeight: 700, color: inv.status === 'paid' ? C.green : C.amber, background: inv.status === 'paid' ? C.greenSoft : C.amberSoft }}
-                >
-                  {inv.status === 'paid' && <Check size={9} strokeWidth={3} />} {inv.status ? inv.status.charAt(0).toUpperCase() + inv.status.slice(1) : '—'}
-                </span>
-                {(inv.pdf || inv.url) && (
-                  <a href={(inv.pdf ?? inv.url)!} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600, color: C.muted }} className="transition-opacity hover:opacity-70">
-                    Download
-                  </a>
-                )}
-              </div>
-            </div>
-          ))
-        )}
       </div>
     </div>
   );

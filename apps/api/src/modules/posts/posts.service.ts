@@ -1,11 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PostStatus, Prisma, Provider } from '@prisma/client';
 import { AuthUser } from '../../common/decorators';
-import { PLAN_LIMITS } from '../../common/plans';
+import { atLimit, limitsFor } from '../../common/plans';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccountsService } from '../social/accounts.service';
 import { ProviderRegistry } from '../social/provider.registry';
-import { ListPostsQuery, UpsertPostDto } from './posts.dto';
+import { ListPostsQuery, PostOverride, UpsertPostDto } from './posts.dto';
 import { PublisherService, StoredMedia } from './publisher.service';
 
 const POST_INCLUDE = {
@@ -250,7 +250,8 @@ export class PostsService {
         const images = media.filter((m) => m.type === 'IMAGE').length;
         const videos = media.filter((m) => m.type === 'VIDEO').length;
         const label = `${this.registry.get(account.provider).displayName} (${account.name})`;
-        if (charLength(full, account.provider) > caps.maxChars) errors.push(`${label}: text exceeds ${caps.maxChars} characters`);
+        const threaded = account.provider === 'X' && overrides?.X?.thread;
+        if (!threaded && charLength(full, account.provider) > caps.maxChars) errors.push(`${label}: text exceeds ${caps.maxChars} characters`);
         if (caps.requiresVideo && !videos) errors.push(`${label}: a video is required`);
         else if (caps.requiresMedia && !media.length) errors.push(`${label}: an image or video is required`);
         if (videos && !caps.video) errors.push(`${label}: videos are not supported`);
@@ -264,9 +265,9 @@ export class PostsService {
     return { accountIds, media, overrides, scheduledAt };
   }
 
-  private sanitizeOverrides(raw?: Record<string, { content?: string; title?: string; tags?: string[] }>) {
+  private sanitizeOverrides(raw?: Record<string, PostOverride>) {
     if (!raw) return null;
-    const out: Partial<Record<Provider, { content?: string; title?: string; tags?: string[] }>> = {};
+    const out: Partial<Record<Provider, PostOverride>> = {};
     for (const key of Object.values(Provider)) {
       const v = raw[key];
       if (!v || typeof v !== 'object') continue;
@@ -286,21 +287,37 @@ export class PostsService {
         }
         if (!tags.length) tags = undefined;
       }
-      if (content || title || tags) out[key] = { content, title, tags };
+      const thread = key === 'X' && v.thread === true ? true : undefined;
+      const firstCommentOk = key === 'INSTAGRAM' || key === 'FACEBOOK';
+      const hashtagsInFirstComment = firstCommentOk && v.hashtagsInFirstComment === true ? true : undefined;
+      const firstComment =
+        firstCommentOk && typeof v.firstComment === 'string' && v.firstComment.trim() ? v.firstComment.slice(0, 2200) : undefined;
+      if (content || title || tags || thread || hashtagsInFirstComment || firstComment) {
+        out[key] = { content, title, tags, thread, hashtagsInFirstComment, firstComment };
+      }
     }
     return Object.keys(out).length ? out : null;
   }
 
   private async assertScheduleQuota(workspaceId: string) {
     const ws = await this.prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
-    const limit = PLAN_LIMITS[ws.plan].scheduledPostsPerMonth;
-    if (limit < 0) return;
-    const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
-    const used = await this.prisma.post.count({
-      where: { workspaceId, status: { not: 'DRAFT' }, createdAt: { gte: monthStart } },
-    });
-    if (used >= limit) {
-      throw new ForbiddenException(`You've used all ${limit} posts included in the ${PLAN_LIMITS[ws.plan].name} plan this month. Upgrade for unlimited posts.`);
+    const limits = limitsFor(ws);
+    if (limits.scheduledPostsTotal >= 0) {
+      const used = await this.prisma.post.count({ where: { workspaceId, status: { not: 'DRAFT' } } });
+      if (atLimit(used, limits.scheduledPostsTotal)) {
+        throw new ForbiddenException(
+          `You've used all ${limits.scheduledPostsTotal} scheduled posts included in the ${limits.name} plan. Upgrade to Creator for unlimited scheduling.`,
+        );
+      }
+    }
+    if (limits.scheduledPostsPerMonth >= 0) {
+      const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+      const used = await this.prisma.post.count({
+        where: { workspaceId, status: { not: 'DRAFT' }, createdAt: { gte: monthStart } },
+      });
+      if (atLimit(used, limits.scheduledPostsPerMonth)) {
+        throw new ForbiddenException(`You've used all ${limits.scheduledPostsPerMonth} posts included in the ${limits.name} plan this month. Upgrade for more.`);
+      }
     }
   }
 }

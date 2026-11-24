@@ -19,7 +19,7 @@ interface ApiKey {
 
 const BORDER = '1px solid #EEF0F4';
 
-/** Settings → API & Integrations → "API Access": workspace API keys for the Postly REST API. */
+/** Settings → API & Integrations → "API Access": workspace API keys for the PostGuru REST API. */
 export function ApiAccess() {
   const qc = useQueryClient();
   const { data: keys, isLoading } = useQuery({ queryKey: ['api-keys'], queryFn: () => api<ApiKey[]>('/workspace/api-keys') });
@@ -58,7 +58,7 @@ export function ApiAccess() {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 4 }}>API Access</h3>
-          <p style={{ fontSize: 13, color: C.faint }}>Use the Postly API to build custom integrations.</p>
+          <p style={{ fontSize: 13, color: C.faint }}>Use the PostGuru API to build custom integrations.</p>
         </div>
         <Btn variant="soft" onClick={() => setCreateOpen(true)}>
           <Plus size={13} strokeWidth={2.5} /> New API key

@@ -27,6 +27,7 @@ import { GrowthAssistant } from '@/components/growth/growth-assistant';
 import { MediaPicker, MediaThumb } from '@/components/media-picker';
 import { useMediaMeta } from '@/lib/growth';
 import { PlatformPreview } from '@/components/posts/platform-preview';
+import { PlatformOptions, type PlatformOptionsState } from '@/components/posts/platform-options';
 import { Btn, Card, Dropdown, MenuItem, PageLoader, StatusPill } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
 import { C, CARD_SHADOW, colorFor } from '@/lib/design';
@@ -40,7 +41,7 @@ type Mode = 'now' | 'schedule' | 'draft';
 const EMOJIS = ['😀', '😂', '😍', '🥳', '🔥', '🚀', '✨', '🎉', '👏', '🙌', '💯', '❤️', '👉', '✅', '📣', '💡', '📅', '🎯', '👇', '🙏', '💪', '🌟', '📈', '🤝'];
 const label = { fontSize: 12, fontWeight: 700, color: C.faint, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: 12 };
 
-function issuesFor(accounts: SocialAccount[], content: string, media: PostMedia[], link: string) {
+function issuesFor(accounts: SocialAccount[], content: string, media: PostMedia[], link: string, xThread = false) {
   const out: string[] = [];
   const images = media.filter((m) => m.type === 'IMAGE').length;
   const videos = media.filter((m) => m.type === 'VIDEO').length;
@@ -49,7 +50,7 @@ function issuesFor(accounts: SocialAccount[], content: string, media: PostMedia[
     const name = `${PLATFORMS[a.provider].short} (${a.name})`;
     const full = link && !content.includes(link) ? `${content} ${link}` : content;
     if (a.status !== 'CONNECTED') out.push(`${name}: reconnect this account first`);
-    if (charCount(full, a.provider) > caps.maxChars) out.push(`${name}: over ${caps.maxChars.toLocaleString()} characters`);
+    if (!(a.provider === 'X' && xThread) && charCount(full, a.provider) > caps.maxChars) out.push(`${name}: over ${caps.maxChars.toLocaleString()} characters`);
     if (caps.requiresVideo && !videos) out.push(`${name}: add a video`);
     else if (caps.requiresMedia && !media.length) out.push(`${name}: add an image or video`);
     if (images > caps.maxImages && !caps.requiresVideo) out.push(`${name}: max ${caps.maxImages} images`);
@@ -96,6 +97,7 @@ function Composer() {
   const [ytTitle, setYtTitle] = useState('');
   const [ytTags, setYtTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState('');
+  const [opts, setOpts] = useState<PlatformOptionsState>({ xThread: false, hashtagsFirstComment: false, firstComment: '' });
   const [mode, setMode] = useState<Mode>('schedule');
   const [date, setDate] = useState(format(start, 'yyyy-MM-dd'));
   const [time, setTime] = useState(initialDate ? format(start, 'HH:mm') : '10:00');
@@ -121,6 +123,12 @@ function Composer() {
       setShowLink(!!existing.link);
       setYtTitle(existing.overrides?.YOUTUBE?.title ?? '');
       setYtTags(existing.overrides?.YOUTUBE?.tags ?? []);
+      const ig = existing.overrides?.INSTAGRAM ?? existing.overrides?.FACEBOOK;
+      setOpts({
+        xThread: !!existing.overrides?.X?.thread,
+        hashtagsFirstComment: !!ig?.hashtagsInFirstComment,
+        firstComment: ig?.firstComment ?? '',
+      });
       if (existing.scheduledAt) {
         const d = new Date(existing.scheduledAt);
         setDate(format(d, 'yyyy-MM-dd'));
@@ -155,7 +163,7 @@ function Composer() {
   const limit = activeAccount?.capabilities.maxChars ?? 2200;
   const used = charCount(link && !content.includes(link) ? `${content} ${link}` : content, active ?? '');
   const ratio = Math.min(used / limit, 1);
-  const issues = issuesFor(chosen, content, media, link);
+  const issues = issuesFor(chosen, content, media, link, opts.xThread);
   const locked = existing && ['PUBLISHING', 'PUBLISHED', 'PARTIAL'].includes(existing.status);
   const scheduledAt = new Date(`${date}T${time}`);
   const scheduleInvalid = mode === 'schedule' && (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now() - 60_000);
@@ -187,10 +195,7 @@ function Composer() {
         accountIds: selected,
         mediaIds: media.map((x) => x.id),
         link: link.trim() || undefined,
-        overrides:
-          ytTitle.trim() || ytTags.length
-            ? { YOUTUBE: { ...(ytTitle.trim() ? { title: ytTitle.trim() } : {}), ...(ytTags.length ? { tags: ytTags } : {}) } }
-            : undefined,
+        overrides: buildOverrides(),
         action,
         scheduledAt: m === 'schedule' || (m === 'draft' && !Number.isNaN(scheduledAt.getTime())) ? scheduledAt.toISOString() : undefined,
       };
@@ -208,6 +213,20 @@ function Composer() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
+  /** Per-platform settings: YouTube title/tags, X thread, Instagram/Facebook first comment. */
+  function buildOverrides() {
+    const out: Record<string, Record<string, unknown>> = {};
+    if (ytTitle.trim() || ytTags.length) out.YOUTUBE = { ...(ytTitle.trim() ? { title: ytTitle.trim() } : {}), ...(ytTags.length ? { tags: ytTags } : {}) };
+    if (opts.xThread && providers.includes('X')) out.X = { thread: true };
+    const fc = opts.firstComment.trim();
+    if (opts.hashtagsFirstComment || fc) {
+      for (const p of ['INSTAGRAM', 'FACEBOOK'] as const) {
+        if (providers.includes(p)) out[p] = { ...(opts.hashtagsFirstComment ? { hashtagsInFirstComment: true } : {}), ...(fc ? { firstComment: fc } : {}) };
+      }
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -460,6 +479,7 @@ function Composer() {
                     </button>
                   </div>
                 )}
+                <PlatformOptions providers={providers} content={content} value={opts} onChange={setOpts} mediaMeta={mediaMeta} disabled={!!locked || !canEdit} />
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
                   <div className="flex items-center gap-2">
                     <div className="relative flex items-center justify-center" style={{ width: 28, height: 28 }}>

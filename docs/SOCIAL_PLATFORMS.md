@@ -1,6 +1,6 @@
-# Connecting social platforms to SocialHub
+# Connecting social platforms to PostGuru
 
-This guide walks through creating the developer apps that let SocialHub publish, read comments and manage messages on behalf of your customers. You do this **once per platform for your SaaS**. After that, every customer just clicks **Social Accounts → Connect** and approves access.
+This guide walks through creating the developer apps that let PostGuru publish, read comments and manage messages on behalf of your customers. You do this **once per platform for your SaaS**. After that, every customer just clicks **Social Accounts → Connect** and approves access.
 
 Throughout this guide, replace `https://your-domain.com` with your **web** app's URL. It must equal the API's `WEB_URL` environment variable. All credentials go into the **API** project's environment variables. Redeploy the API after adding them.
 
@@ -34,7 +34,7 @@ One Meta app powers both platforms. Instagram must be a **Business or Creator** 
    - Turn on *Client OAuth login* and *Web OAuth login*, and *Enforce HTTPS*.
 4. Add the products **Instagram** (choose *API setup with Facebook login*), **Messenger** and **Webhooks**.
 
-### 1.2 Permissions SocialHub requests
+### 1.2 Permissions PostGuru requests
 
 | Permission | Used for |
 |---|---|
@@ -61,12 +61,12 @@ In development mode, these work for people who have a **role on the app** (Admin
 3. Select the **Instagram** object, use the same callback and token, and subscribe to **comments**, **mentions** and **messages**.
 4. Under **Messenger → Settings** and **Instagram → Settings**, enable the webhooks for your app.
 
-SocialHub automatically subscribes each connected Page to your app (`/{page-id}/subscribed_apps`). Incoming events are verified with `X-Hub-Signature-256` (HMAC using your App Secret) and trigger an immediate sync of that account. Even without webhooks, the `/api/cron/sync` job picks up new items every few minutes.
+PostGuru automatically subscribes each connected Page to your app (`/{page-id}/subscribed_apps`). Incoming events are verified with `X-Hub-Signature-256` (HMAC using your App Secret) and trigger an immediate sync of that account. Even without webhooks, the `/api/cron/sync` job picks up new items every few minutes.
 
 ### 1.4 Go live
 
 1. Complete **Business Verification** (App settings → Basic → Verification).
-2. Under **App Review → Permissions and Features**, request **Advanced Access** for every permission above. For each one, provide a screencast showing the matching SocialHub screen (connecting, composing and publishing, the inbox reply, the comment reply/hide, analytics).
+2. Under **App Review → Permissions and Features**, request **Advanced Access** for every permission above. For each one, provide a screencast showing the matching PostGuru screen (connecting, composing and publishing, the inbox reply, the comment reply/hide, analytics).
 3. Switch the app to **Live** mode.
 
 **Notes**
@@ -91,7 +91,7 @@ SocialHub automatically subscribes each connected Page to your app (`/{page-id}/
 
 ### 2.2 Scopes and access tier
 
-SocialHub uses OAuth 2.0 with PKCE and these scopes: `tweet.read tweet.write users.read offline.access dm.read dm.write media.write tweet.moderate.write`.
+PostGuru uses OAuth 2.0 with PKCE and these scopes: `tweet.read tweet.write users.read offline.access dm.read dm.write media.write tweet.moderate.write`.
 
 | Feature | Endpoint | Tier needed |
 |---|---|---|
@@ -100,7 +100,7 @@ SocialHub uses OAuth 2.0 with PKCE and these scopes: `tweet.read tweet.write use
 | Direct messages | `GET /2/dm_events`, `POST /2/dm_conversations/:id/messages` | **Basic or higher** |
 | Hide replies | `PUT /2/tweets/:id/hidden` | Basic or higher |
 
-Access tokens last about 2 hours. SocialHub refreshes them automatically using the refresh token (`offline.access`).
+Access tokens last about 2 hours. PostGuru refreshes them automatically using the refresh token (`offline.access`).
 
 ---
 
@@ -117,7 +117,7 @@ Access tokens last about 2 hours. SocialHub refreshes them automatically using t
    - **Share on LinkedIn** (instant): gives `w_member_social`, for posting to the member's own profile.
    - **Community Management API** (requires an application and review): gives `r_organization_social w_organization_social rw_organization_admin`, for **Company Pages**, comments and organization analytics.
 
-### 3.2 Configure SocialHub
+### 3.2 Configure PostGuru
 
 - Personal profiles work right away with the instant products.
 - Once the Community Management API is approved, set `LINKEDIN_ORGANIZATIONS=true`. Users then see each Company Page they administer as a separate account.
@@ -126,7 +126,7 @@ Access tokens last about 2 hours. SocialHub refreshes them automatically using t
 **Notes**
 - Tokens last 60 days. LinkedIn issues refresh tokens only to approved partners, so users without one see **Reconnect needed** when the token expires.
 - LinkedIn has no public messaging API, so LinkedIn accounts don't appear in the Inbox.
-- Members can't list their own posts through the API. SocialHub syncs comments for posts **published through SocialHub**.
+- Members can't list their own posts through the API. PostGuru syncs comments for posts **published through PostGuru**.
 
 ---
 
@@ -150,7 +150,7 @@ Access tokens last about 2 hours. SocialHub refreshes them automatically using t
 
 **Notes**
 - YouTube posts require a video. The YouTube tab in the composer lets users set a **title**; otherwise the first line of the text is used.
-- Refresh tokens are long-lived. SocialHub always requests offline access with `prompt=consent` so a refresh token is returned.
+- Refresh tokens are long-lived. PostGuru always requests offline access with `prompt=consent` so a refresh token is returned.
 
 ---
 
@@ -159,7 +159,7 @@ Access tokens last about 2 hours. SocialHub refreshes them automatically using t
 1. Go to **Social Accounts**. Every configured platform should show **Connect**. Unconfigured ones show **Not configured**.
 2. Connect each platform. You're returned to `/accounts?connected=…` with a success toast, and an initial sync runs.
 3. **Create Post**: select the accounts, add an image, then **Publish now**. Each target shows *Published* with a link to the live post.
-4. Comment on that post from another personal account, then press **Sync now** on **Comments** (or wait for the webhook or cron). Reply from SocialHub and confirm the reply appears on the platform.
+4. Comment on that post from another personal account, then press **Sync now** on **Comments** (or wait for the webhook or cron). Reply from PostGuru and confirm the reply appears on the platform.
 5. Send a DM to the Page, IG account or X account, then reply from the **Inbox**.
 6. Schedule a post 2 minutes ahead and confirm that the cron publishes it.
 

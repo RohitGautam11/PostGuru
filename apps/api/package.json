@@ -1,8 +1,8 @@
 {
-  "name": "socialhub-api",
+  "name": "postguru-api",
   "version": "1.0.0",
   "private": true,
-  "description": "SocialHub API - NestJS backend for multi-platform social media management",
+  "description": "PostGuru API - NestJS backend for multi-platform social media management",
   "engines": {
     "node": ">=20"
   },

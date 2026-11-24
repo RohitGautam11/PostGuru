@@ -1,7 +1,7 @@
 {
-  "name": "socialhub",
+  "name": "postguru",
   "private": true,
-  "description": "SocialHub - multi-platform social media management SaaS (Next.js + NestJS)",
+  "description": "PostGuru - multi-platform social media management SaaS (Next.js + NestJS)",
   "scripts": {
     "install:all": "npm --prefix apps/api install && npm --prefix apps/web install",
     "db:up": "docker compose up -d",

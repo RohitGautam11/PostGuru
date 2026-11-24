@@ -1,5 +1,5 @@
 # Free alternative to Vercel Cron (Hobby plans only allow daily crons).
-# Set repository secrets: API_URL (e.g. https://socialhub-api.vercel.app) and CRON_SECRET.
+# Set repository secrets: API_URL (the API project's URL, e.g. https://postguru-api.vercel.app) and CRON_SECRET.
 # GitHub runs scheduled workflows at most every 5 minutes, and may delay them under load.
 name: Scheduler
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Warn about expiring social tokens
+      - name: Refresh long-lived tokens (Meta/Instagram/Threads at day 50) and warn about expiring ones
         run: |
           curl -fsS "${{ secrets.API_URL }}/api/cron/token-expiry" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" --max-time 300

@@ -241,7 +241,7 @@ export class LinkedInProvider implements SocialProvider {
     await request(`${REST}/posts/${encodeURIComponent(externalId)}`, { method: 'DELETE', headers: this.headers(ctx.accessToken) });
   }
 
-  /** Comments on posts published through SocialHub (LinkedIn has no "list my posts" for members). */
+  /** Comments on posts published through PostGuru (LinkedIn has no "list my posts" for members). */
   async fetchComments(ctx: AccountContext, knownPostIds: string[]): Promise<RemoteComment[]> {
     const out: RemoteComment[] = [];
     for (const urn of knownPostIds.slice(0, 20)) {

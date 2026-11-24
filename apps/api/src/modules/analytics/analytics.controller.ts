@@ -2,7 +2,7 @@ import { Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Provider } from '@prisma/client';
 import { AuthUser, CurrentUser } from '../../common/decorators';
-import { PLAN_LIMITS } from '../../common/plans';
+import { limitsFor } from '../../common/plans';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReportsService } from '../notifications/reports.service';
 
@@ -36,7 +36,7 @@ export class AnalyticsController {
       .map((p) => p.trim().toUpperCase())
       .filter((p): p is Provider => (Object.values(Provider) as string[]).includes(p));
     const ws = await this.prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId } });
-    const maxDays = PLAN_LIMITS[ws.plan].analyticsDays;
+    const maxDays = limitsFor(ws).analyticsDays;
     const days = Math.min(Math.max(Number(daysRaw) || 30, 1), maxDays);
     const to = new Date();
     const from = new Date(to.getTime() - days * DAY);

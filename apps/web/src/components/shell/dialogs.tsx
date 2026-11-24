@@ -1,7 +1,25 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, BellRing, BookOpen, CircleCheckBig, KeyRound, Link2, LogOut, Mail, ShieldCheck, SquarePen, StickyNote } from 'lucide-react';
+import {
+  ArrowRight,
+  BellRing,
+  BookOpen,
+  CircleCheckBig,
+  Eye,
+  Hash,
+  KeyRound,
+  Link2,
+  ListOrdered,
+  LogOut,
+  Mail,
+  Map as MapIcon,
+  ShieldCheck,
+  Sparkles,
+  SquarePen,
+  StickyNote,
+  UserRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { GradientAvatar, Modal } from '@/components/ui';
@@ -163,10 +181,16 @@ export function HelpDialog({ open, onClose }: { open: boolean; onClose: () => vo
 }
 
 const WHATS_NEW = [
+  { icon: UserRound, title: 'Instagram for creators', text: 'Connect a Creator account with Instagram login, no Facebook Page needed.', href: '/connect' },
+  { icon: Sparkles, title: 'AI reply suggestions', text: 'One click drafts three replies to a comment or DM in your brand voice.', href: '/inbox' },
+  { icon: ListOrdered, title: 'X threads', text: 'Long posts can now go out on X as a numbered thread automatically.', href: '/composer' },
+  { icon: Hash, title: 'Hashtags in the first comment', text: 'Keep Instagram and Facebook captions clean: hashtags are posted as the first comment.', href: '/composer' },
+  { icon: Eye, title: 'Who is replying', text: 'The inbox shows when a teammate is viewing or replying to the same conversation.', href: '/inbox' },
+  { icon: MapIcon, title: 'Public roadmap & feedback', text: 'Send feedback from any page and upvote the features you want next.', href: '/roadmap' },
   { icon: ShieldCheck, title: 'Two-factor authentication', text: 'Protect your account with an authenticator app and recovery codes.', href: '/settings' },
   { icon: Link2, title: 'Invite by link', text: 'Share one link so teammates can join your workspace with the role you choose.', href: '/settings?tab=team' },
   { icon: BellRing, title: 'Email notifications & weekly report', text: 'Pick email or push per alert, and get an analytics summary every Monday.', href: '/settings?tab=notifications' },
-  { icon: KeyRound, title: 'API access', text: 'Create API keys to connect Postly to your own tools.', href: '/settings?tab=integrations' },
+  { icon: KeyRound, title: 'API access', text: 'Create API keys to connect PostGuru to your own tools.', href: '/settings?tab=integrations' },
   { icon: StickyNote, title: 'Inbox notes & mute', text: 'Leave internal notes on conversations and mute noisy contacts.', href: '/inbox' },
 ];
 

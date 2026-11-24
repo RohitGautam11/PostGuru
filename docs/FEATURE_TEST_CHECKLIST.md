@@ -1,4 +1,4 @@
-# Postly: Complete Feature Test Checklist
+# PostGuru: Complete Feature Test Checklist
 
 Use this to test **every feature** before a client demo. Work top to bottom. Tick ✅ or write what went wrong.
 
@@ -38,7 +38,7 @@ Legend: **[A]** covered by the automated test · **[M]** manual only (needs a re
 | 2.7 | TikTok [M] | Connect (needs `TIKTOK_CLIENT_KEY/SECRET`, you are a sandbox target user) | TikTok account appears | |
 | 2.8 | Pinterest [M] | Connect (needs `PINTEREST_APP_ID/SECRET`) | One entry **per board** | |
 | 2.9 | Not configured [A] | A platform without keys | Shows "Not configured", button disabled | |
-| 2.10 | Cancel login [M] | Start Connect, press Cancel on the provider page | Back in Postly with a friendly message | |
+| 2.10 | Cancel login [M] | Start Connect, press Cancel on the provider page | Back in PostGuru with a friendly message | |
 | 2.11 | Disconnect / reconnect [M] | Account menu → Disconnect, then connect again | Works; old posts stay | |
 | 2.12 | Manual sync [M] | Account menu → Sync now | Followers / inbox refresh | |
 
@@ -100,7 +100,7 @@ Legend: **[A]** covered by the automated test · **[M]** manual only (needs a re
 | 6.1 | Delivery per platform [A] | Open a published/failed post | Status per account, error reason, link to live post | |
 | 6.2 | Retry failed [A] | Retry | Retries only failed targets | |
 | 6.3 | Duplicate [A] | Duplicate | New draft copy | |
-| 6.4 | Delete (also on platform) [A+M] | Delete → "also delete from network" | Removed in Postly and on the platform | |
+| 6.4 | Delete (also on platform) [A+M] | Delete → "also delete from network" | Removed in PostGuru and on the platform | |
 | 6.5 | Performance [M] | After sync | Likes, comments, shares, impressions | |
 
 ## 7. Inbox (/inbox)
@@ -109,7 +109,7 @@ Legend: **[A]** covered by the automated test · **[M]** manual only (needs a re
 |---|---|---|---|---|
 | 7.1 | Unified list [A] | Open Inbox | DMs + comments from all platforms | |
 | 7.2 | Filters & search [A] | All / Unread / Comments / DMs / Mentions; search a name | Filters correctly | |
-| 7.3 | Reply DM [M] | Message your FB Page from another account → reply in Postly | Reply arrives in Messenger (within 24 h rule) | |
+| 7.3 | Reply DM [M] | Message your FB Page from another account → reply in PostGuru | Reply arrives in Messenger (within 24 h rule) | |
 | 7.4 | Reply comment [M] | Reply to a real comment | Appears on the platform | |
 | 7.5 | Hide / delete comment [A+M] | Hide, then delete | Done on the platform | |
 | 7.6 | Sentiment [A] | Negative comment | Labelled negative | |

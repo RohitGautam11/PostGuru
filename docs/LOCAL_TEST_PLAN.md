@@ -27,7 +27,7 @@ Log in at http://localhost:3002 → *Connect Account*. Each developer console mu
 | 1.3 | Connect X | X card appears | |
 | 1.4 | Connect LinkedIn (profile + company page) | LinkedIn card(s) appear | |
 | 1.5 | Connect YouTube | Channel card appears | |
-| 1.6 | Cancel half-way on a provider login screen | Back in Postly with a friendly error, nothing broken | |
+| 1.6 | Cancel half-way on a provider login screen | Back in PostGuru with a friendly error, nothing broken | |
 | 1.7 | Disconnect an account, then reconnect it | Works both ways; old posts are kept | |
 
 ## 2. Real publishing (use test pages, not client pages)
@@ -48,7 +48,7 @@ Log in at http://localhost:3002 → *Connect Account*. Each developer console mu
 | # | Test | Expected | ✅ |
 |---|---|---|---|
 | 3.1 | From another FB account, message the Page | Appears in Inbox after sync / within ~10 min | |
-| 3.2 | Reply from Postly | Reply arrives in Messenger | |
+| 3.2 | Reply from PostGuru | Reply arrives in Messenger | |
 | 3.3 | Comment on your FB/IG post from another account | Appears under Comments with sentiment | |
 | 3.4 | Reply / hide / delete that comment | Happens on the real network | |
 

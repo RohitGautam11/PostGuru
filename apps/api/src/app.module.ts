@@ -21,6 +21,9 @@ import { SocialModule } from './modules/social/social.module';
 import { UsersModule } from './modules/users/users.module';
 import { WebhooksController } from './modules/webhooks/webhooks.controller';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { ComplianceController } from './modules/compliance/compliance.controller';
+import { FeedbackModule } from './modules/feedback/feedback.controller';
+import { PublicController } from './modules/public/public.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
 
@@ -52,8 +55,18 @@ class HealthController {
     PostsModule,
     EngagementModule,
     GrowthModule,
+    FeedbackModule,
   ],
-  controllers: [HealthController, AnalyticsController, DashboardController, BillingController, WebhooksController, CronController],
+  controllers: [
+    HealthController,
+    AnalyticsController,
+    DashboardController,
+    BillingController,
+    WebhooksController,
+    CronController,
+    ComplianceController,
+    PublicController,
+  ],
   providers: [
     CronJobs,
     { provide: APP_GUARD, useClass: ThrottlerGuard },

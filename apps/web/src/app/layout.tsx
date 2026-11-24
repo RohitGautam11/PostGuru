@@ -4,7 +4,7 @@ import { Providers } from './providers';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
-const APP = process.env.NEXT_PUBLIC_APP_NAME || 'Postly';
+const APP = process.env.NEXT_PUBLIC_APP_NAME || 'PostGuru';
 
 export const metadata: Metadata = {
   title: { default: APP, template: `%s · ${APP}` },

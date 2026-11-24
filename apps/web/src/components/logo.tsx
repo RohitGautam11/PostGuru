@@ -1,9 +1,9 @@
 import { Zap } from 'lucide-react';
 import { GRADIENT } from '@/lib/design';
 
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Postly';
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'PostGuru';
 
-/** Postly mark: gradient tile with a lightning bolt, plus the wordmark. */
+/** PostGuru mark: gradient tile with a lightning bolt, plus the wordmark. */
 export function Logo({ size = 32, textSize = 17, dark, hideText }: { size?: number; textSize?: number; dark?: boolean; hideText?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">

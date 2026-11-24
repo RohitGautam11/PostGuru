@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
   BookOpen,
@@ -14,6 +14,10 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
+  Map as MapIcon,
+  FlaskConical,
+  ShieldCheck,
+  TriangleAlert,
   Plus,
   Settings,
   SquarePen,
@@ -43,7 +47,7 @@ const MENU = [
 
 export function activeId(path: string) {
   if (path.startsWith('/posts')) return 'dashboard';
-  return ['dashboard', 'composer', 'planner', 'inbox', 'analytics', 'growth', 'guide', 'settings', 'connect'].find((id) => path.startsWith(`/${id}`)) ?? '';
+  return ['dashboard', 'composer', 'planner', 'inbox', 'analytics', 'growth', 'guide', 'settings', 'connect', 'roadmap', 'beta', 'admin'].find((id) => path.startsWith(`/${id}`)) ?? '';
 }
 
 const label = { fontSize: 10, fontWeight: 700, color: '#B0B8C8', letterSpacing: '0.08em', textTransform: 'uppercase' as const };
@@ -158,6 +162,8 @@ export function Sidebar({
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const { data: adminMe } = useQuery({ queryKey: ['admin', 'me'], queryFn: () => api<{ admin: boolean }>('/admin/me'), staleTime: 10 * 60_000 });
+  const isAdmin = !!adminMe?.admin;
   const ws = me?.workspace;
   const wsColor = colorFor(ws?.id ?? 'w');
   const unread = dash?.stats.unreadInbox ?? 0;
@@ -317,6 +323,32 @@ export function Sidebar({
                 </div>
               </div>
             )}
+            {channels.some((a) => a.health !== 'active') && (
+              <button
+                onClick={() => go('/connect')}
+                title="Some accounts need to be reconnected"
+                className="mb-2 flex w-full items-center gap-2 rounded-xl text-left transition-opacity hover:opacity-85"
+                style={{
+                  padding: c ? '8px 0' : '9px 12px',
+                  justifyContent: c ? 'center' : 'flex-start',
+                  background: channels.some((a) => a.health === 'expired') ? C.redSoft : C.amberSoft,
+                  border: `1px solid ${channels.some((a) => a.health === 'expired') ? C.redBorder : C.amberBorder}`,
+                }}
+              >
+                <TriangleAlert size={14} color={channels.some((a) => a.health === 'expired') ? C.red : C.amber} className="flex-shrink-0" />
+                {!c && (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: channels.some((a) => a.health === 'expired') ? C.red : C.amber, lineHeight: 1.35 }}>
+                    {(() => {
+                      const expired = channels.filter((a) => a.health === 'expired').length;
+                      const expiring = channels.filter((a) => a.health === 'expiring').length;
+                      return expired
+                        ? `${expired} account${expired > 1 ? 's' : ''} disconnected: reconnect`
+                        : `${expiring} account${expiring > 1 ? 's' : ''} expiring soon`;
+                    })()}
+                  </span>
+                )}
+              </button>
+            )}
             <NavButton
               active={current === 'connect'}
               collapsed={c}
@@ -346,6 +378,9 @@ export function Sidebar({
               </div>
             )}
             <NavButton active={current === 'settings'} collapsed={c} icon={Settings} text="Settings" onClick={() => go('/settings')} />
+            <NavButton active={current === 'roadmap'} collapsed={c} icon={MapIcon} text="Roadmap & Feedback" onClick={() => go('/roadmap')} />
+            <NavButton active={current === 'beta'} collapsed={c} icon={FlaskConical} text="Beta Program" onClick={() => go('/beta')} />
+            {isAdmin && <NavButton active={current === 'admin'} collapsed={c} icon={ShieldCheck} text="Admin" onClick={() => go('/admin')} />}
             <NavButton active={false} collapsed={c} icon={CircleHelp} text="Help & Support" onClick={onHelp} />
           </div>
         </nav>

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { HelpDialog, ShortcutsDialog, SignOutDialog, WhatsNewDialog } from '@/components/shell/dialogs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
+import { FeedbackWidget } from '@/components/shell/feedback-widget';
 import { Spinner } from '@/components/ui';
 import { useMe } from '@/lib/hooks';
 
@@ -65,6 +66,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <HelpDialog open={help} onClose={() => setHelp(false)} />
       <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
       <WhatsNewDialog open={whatsNew} onClose={() => setWhatsNew(false)} />
+      <FeedbackWidget />
     </div>
   );
 }

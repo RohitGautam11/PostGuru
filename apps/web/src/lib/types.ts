@@ -1,6 +1,6 @@
 export type Provider = 'FACEBOOK' | 'INSTAGRAM' | 'X' | 'LINKEDIN' | 'YOUTUBE' | 'THREADS' | 'TIKTOK' | 'PINTEREST';
 export type Role = 'OWNER' | 'ADMIN' | 'EDITOR' | 'VIEWER';
-export type Plan = 'FREE' | 'PRO' | 'BUSINESS';
+export type Plan = 'FREE' | 'CREATOR' | 'PRO' | 'BUSINESS';
 export type PostStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHING' | 'PUBLISHED' | 'PARTIAL' | 'FAILED';
 export type TargetStatus = 'PENDING' | 'PUBLISHING' | 'PUBLISHED' | 'FAILED';
 export type CommentStatus = 'NEW' | 'REVIEWED' | 'REPLIED' | 'HIDDEN';
@@ -61,6 +61,8 @@ export interface Integration {
   key: Provider;
   name: string;
   configured: boolean;
+  /** Connection flavours, e.g. Instagram creator (Instagram Login) vs business (Facebook Page). */
+  modes: { key: string; configured: boolean }[] | null;
   capabilities: Capabilities;
   callbackUrl: string;
 }
@@ -103,7 +105,9 @@ export interface Post {
   content: string;
   media: PostMedia[];
   link: string | null;
-  overrides: Partial<Record<Provider, { content?: string; title?: string; tags?: string[] }>> | null;
+  overrides: Partial<
+    Record<Provider, { content?: string; title?: string; tags?: string[]; thread?: boolean; hashtagsInFirstComment?: boolean; firstComment?: string }>
+  > | null;
   status: PostStatus;
   scheduledAt: string | null;
   publishedAt: string | null;

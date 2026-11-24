@@ -17,6 +17,7 @@ enum Role {
 
 enum Plan {
   FREE
+  CREATOR
   PRO
   BUSINESS
 }
@@ -83,56 +84,69 @@ enum Sentiment {
 }
 
 model User {
-  id                String         @id @default(cuid())
-  email             String         @unique
-  passwordHash      String
-  name              String
-  avatarUrl         String?
-  timezone          String         @default("UTC")
-  jobTitle          String?
-  googleId          String?        @unique
-  passwordChangedAt DateTime?
-  notificationPrefs Json?
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  passwordHash       String
+  name               String
+  avatarUrl          String?
+  timezone           String               @default("UTC")
+  jobTitle           String?
+  googleId           String?              @unique
+  passwordChangedAt  DateTime?
+  notificationPrefs  Json?
   /// TOTP secret, AES-256-GCM encrypted. Set during setup; 2FA is active only once twoFactorEnabledAt is set.
-  twoFactorSecret     String?
-  twoFactorEnabledAt  DateTime?
+  twoFactorSecret    String?
+  twoFactorEnabledAt DateTime?
   /// sha256 hashes of unused single-use recovery codes
-  twoFactorRecovery   String[]       @default([])
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  memberships       Membership[]
-  refreshTokens     RefreshToken[]
-  notifications     Notification[]
-  posts             Post[]
-  resetTokens       PasswordResetToken[]
+  twoFactorRecovery  String[]             @default([])
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  memberships        Membership[]
+  refreshTokens      RefreshToken[]
+  notifications      Notification[]
+  posts              Post[]
+  resetTokens        PasswordResetToken[]
 }
 
 model Workspace {
-  id                   String         @id @default(cuid())
-  name                 String
-  plan                 Plan           @default(FREE)
-  stripeCustomerId     String?        @unique
-  stripeSubscriptionId String?        @unique
-  subscriptionStatus   String?
-  currentPeriodEnd     DateTime?
+  id                     String          @id @default(cuid())
+  name                   String
+  plan                   Plan            @default(FREE)
+  stripeCustomerId       String?         @unique
+  stripeSubscriptionId   String?         @unique
+  subscriptionStatus     String?
+  currentPeriodEnd       DateTime?
   /// Reusable "invite by link" token, encrypted so admins can view and copy it again. Null = link disabled.
-  inviteLinkToken      String?
-  inviteLinkHash       String?        @unique
-  inviteLinkRole       Role           @default(EDITOR)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  memberships          Membership[]
-  invitations          Invitation[]
-  accounts             SocialAccount[]
-  posts                Post[]
-  media                MediaAsset[]
-  conversations        Conversation[]
-  comments             Comment[]
-  notifications        Notification[]
-  oauthStates          OAuthState[]
-  apiKeys              ApiKey[]
-  threadNotes          ThreadNote[]
-  mutedContacts        MutedContact[]
+  inviteLinkToken        String?
+  inviteLinkHash         String?         @unique
+  inviteLinkRole         Role            @default(EDITOR)
+  /// AI Growth Assistant usage for the current calendar month ("YYYY-MM").
+  aiCreditsUsed          Int             @default(0)
+  aiCreditsMonth         String?
+  /// Billing / GST details used on tax invoices.
+  billingProvider        String?
+  billingCurrency        String?
+  billingLegalName       String?
+  billingGstin           String?
+  billingAddress         String?
+  billingState           String?
+  billingCountry         String?         @default("IN")
+  razorpaySubscriptionId String?         @unique
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  memberships            Membership[]
+  invitations            Invitation[]
+  accounts               SocialAccount[]
+  posts                  Post[]
+  media                  MediaAsset[]
+  conversations          Conversation[]
+  comments               Comment[]
+  notifications          Notification[]
+  oauthStates            OAuthState[]
+  apiKeys                ApiKey[]
+  threadNotes            ThreadNote[]
+  mutedContacts          MutedContact[]
+  invoices               Invoice[]
 }
 
 model Membership {
@@ -183,6 +197,8 @@ model OAuthState {
   userId       String
   provider     Provider
   codeVerifier String?
+  /// Connection flavour, e.g. "creator" = Instagram Login (no Facebook Page), "business" = Facebook Login for Business.
+  mode         String?
   expiresAt    DateTime
   createdAt    DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -439,4 +455,124 @@ model MutedContact {
 
   @@unique([socialAccountId, externalId])
   @@index([workspaceId])
+}
+
+/// Processed billing webhook events, so retries from Stripe/Razorpay are applied exactly once.
+model BillingEvent {
+  id        String   @id
+  provider  String
+  type      String
+  createdAt DateTime @default(now())
+}
+
+/// GST-compliant tax invoice (domestic INR payments). Amounts are in the smallest unit (paise / cents).
+model Invoice {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  number          String    @unique
+  financialYear   String
+  provider        String
+  externalId      String?   @unique
+  plan            Plan
+  currency        String
+  subtotal        Int
+  cgst            Int       @default(0)
+  sgst            Int       @default(0)
+  igst            Int       @default(0)
+  total           Int
+  customerName    String
+  customerGstin   String?
+  customerAddress String?
+  placeOfSupply   String?
+  sacCode         String
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  issuedAt        DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, issuedAt])
+}
+
+/// Sequential invoice numbering per Indian financial year (e.g. "25-26").
+model InvoiceCounter {
+  financialYear String @id
+  seq           Int    @default(0)
+}
+
+/// Meta data-deletion / deauthorization callback requests.
+model DataDeletionRequest {
+  id               String    @id @default(cuid())
+  confirmationCode String    @unique
+  source           String
+  externalUserId   String?
+  email            String?
+  status           String    @default("PENDING")
+  details          String?
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+}
+
+/// In-app feedback, bug reports and feature requests. Public items appear on the roadmap with upvotes.
+model Feedback {
+  id          String         @id @default(cuid())
+  workspaceId String?
+  userId      String?
+  userName    String?
+  userEmail   String?
+  kind        String         @default("IDEA")
+  title       String
+  message     String         @db.Text
+  page        String?
+  status      String         @default("NEW")
+  public      Boolean        @default(false)
+  votes       Int            @default(1)
+  adminNote   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  voters      FeedbackVote[]
+
+  @@index([public, status])
+  @@index([createdAt])
+}
+
+model FeedbackVote {
+  feedbackId String
+  userId     String
+  createdAt  DateTime @default(now())
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@id([feedbackId, userId])
+}
+
+/// Beta testers' platform identities, so admins can add them as app testers while apps are in Development mode.
+model BetaTester {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  email     String
+  name      String
+  facebook  String?
+  instagram String?
+  gmail     String?
+  linkedin  String?
+  x         String?
+  threads   String?
+  tiktok    String?
+  pinterest String?
+  notes     String?
+  status    String   @default("REQUESTED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Who is looking at / replying to an inbox thread right now (collision detection).
+model ThreadPresence {
+  threadId    String
+  userId      String
+  workspaceId String
+  userName    String
+  action      String   @default("viewing")
+  updatedAt   DateTime @updatedAt
+
+  @@id([threadId, userId])
+  @@index([workspaceId, threadId])
 }

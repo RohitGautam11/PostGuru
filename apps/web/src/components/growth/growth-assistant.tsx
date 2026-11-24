@@ -119,7 +119,7 @@ export function GrowthAssistant(p: Props) {
       {tab === 'score' && (
         <div className="p-4">
           {!ready ? (
-            <p style={{ fontSize: 12, color: C.faint }}>Select a platform and start writing. Postly scores your post for reach and engagement as you type.</p>
+            <p style={{ fontSize: 12, color: C.faint }}>Select a platform and start writing. PostGuru scores your post for reach and engagement as you type.</p>
           ) : !score ? (
             <div className="flex justify-center py-6"><Spinner /></div>
           ) : (
