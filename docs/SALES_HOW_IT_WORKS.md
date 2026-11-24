@@ -7,7 +7,7 @@ This guide explains **what happens behind every button**, so you can answer any 
 ## Part 1: The big picture in plain words
 
 ```
- Your client ──► PostGuru website (techsquad-postly.vercel.app)
+ Your client ──► PostGuru website (postguru.vercel.app)
                     │
                     ├─ PostGuru server (API) ─── PostGuru database (secure, encrypted)
                     │        │

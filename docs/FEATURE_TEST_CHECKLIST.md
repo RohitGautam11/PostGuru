@@ -3,7 +3,7 @@
 Use this to test **every feature** before a client demo. Work top to bottom. Tick ✅ or write what went wrong.
 
 - **Local:** http://localhost:3002 (start the stack as in [LOCAL_TEST_PLAN.md](LOCAL_TEST_PLAN.md))
-- **Live:** https://techsquad-postly.vercel.app
+- **Live:** https://postguru.vercel.app
 - **Automated first:** run `npm run test:e2e` (169 checks). It must say *all checks passed* before you start manual testing.
 
 Legend: **[A]** covered by the automated test · **[M]** manual only (needs a real account, a browser, or your eyes)
